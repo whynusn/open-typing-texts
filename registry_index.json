@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-07-05T10:47:30+00:00",
+  "updated_at": "2026-07-05T10:49:37+00:00",
   "sources": [
     {
       "id": 0,
@@ -10,16 +10,6 @@
       "category": "daily",
       "charCount": 15,
       "update_freq": "daily",
-      "has_ranking": false
-    },
-    {
-      "id": 0,
-      "source_key": "jisubei-2026-07-05",
-      "label": "大模型内容同质化：AI正在扼杀原创思考",
-      "description": "极速杯每日挑战 2026-07-05",
-      "category": "jisubei",
-      "charCount": 437,
-      "update_freq": "static",
       "has_ranking": false
     },
     {
