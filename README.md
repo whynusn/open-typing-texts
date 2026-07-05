@@ -16,8 +16,7 @@ open-typing-texts/
 │   ├── fetch_jisubei.py
 │   └── gen_index.py          ← 自动扫描 content/ 生成索引
 └── .github/workflows/
-    ├── daily.yml             ← 每日 0 点 + 手动触发
-    └── weekly-static.yml     ← 每周全量刷新
+    └── daily.yml             ← 每日 0 点 + 手动触发（各脚本自行决定更新频率）
 ```
 
 ## 接入方式
@@ -90,8 +89,18 @@ primary_url = https://cdn.jsdelivr.net/gh/whynusn/open-typing-texts@main
 ## 贡献方式
 
 1. **添加新文本**：往 `content/` 放入 `{key}.json`，运行 `python scripts/gen_index.py` 更新索引，提交 PR
-2. **添加自动抓取**：在 `scripts/` 写抓取脚本，在 `.github/workflows/` 配置定时任务，提交 PR
+2. **添加自动抓取**：在 `scripts/` 写抓取脚本，在 `daily.yml` 添加调用，提交 PR
 3. **手动触发**：GitHub Actions 页面 → `daily.yml` → Run workflow
+
+### 抓取脚本更新频率
+
+CI 统一每日运行，各脚本自行判断是否需要真正更新：
+
+| 频率 | 脚本逻辑 |
+|:---|:---|
+| 每日 | 每次都抓 |
+| 每3天 | `if file.exists() and mtime > now - 3days: skip` |
+| 每周 | `if file.exists() and mtime > now - 7days: skip` |
 
 ## 安全模型
 
