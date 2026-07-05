@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""fetch_daily.py — 每日一文抓取脚本（CI 运行）。
+"""fetch_daily.py — 每日一文抓取脚本（用户本地运行）。
 
-从公开中文文本源获取当日的文章正文，写入 content/daily.json。
-支持 GitHub Actions workflow_dispatch 的 date 输入。
+DISCLAIMER: 本脚本仅供技术学习，请确保抓取内容符合目标网站的 robots.txt
+及当地版权法，使用者自负全责。
 
 用法：
+    pip install httpx
     python scripts/fetch_daily.py
     python scripts/fetch_daily.py --date 2026-07-05
     python scripts/fetch_daily.py --dry-run
-
-安全：本脚本仅在 GitHub Actions CI 中运行，不读取本地凭据。
 """
 
 import argparse

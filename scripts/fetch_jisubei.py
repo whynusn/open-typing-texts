@@ -1,23 +1,14 @@
 #!/usr/bin/env python3
-"""fetch_jisubei.py — 极速杯文本抓取脚本（CI 运行）。
+"""fetch_jisubei.py — 极速杯文本抓取脚本（用户本地运行）。
 
-从赛文（SaiWen）API 获取每日打字文本，写入 content/ 目录。
-赛文 API 从 52dazi.cn 抓取原始内容，本脚本逆向其加密协议。
-
-历史背景：
-  typetype 1.x 版本内置了本爬虫（GetSaiWen.py + Crypt.py），
-  直接从赛文 API 获取文本。当前版本改为通过 typetype-server 间接获取。
-  本脚本是 registry 标准下的移植版本，与原始 1.x 实现完全兼容。
-
-加密协议：AES-CBC / ZeroPadding / Latin1 / Base64
-API 地址：https://www.jsxiaoshi.com/index.php/Api/Text/getContent
+DISCLAIMER: 本脚本仅供技术学习，请确保抓取内容符合目标网站的 robots.txt
+及当地版权法，使用者自负全责。
 
 用法：
+    pip install httpx pycryptodome
     python scripts/fetch_jisubei.py
     python scripts/fetch_jisubei.py --date 2026-07-05
     python scripts/fetch_jisubei.py --dry-run
-
-依赖：pypycryptodome（CI workflow 中 pip install）
 """
 
 import argparse

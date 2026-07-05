@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""gen_index.py — 生成 registry_index.json（CI 运行）。
+"""gen_index.py — 生成 registry_index.json（用户本地运行）。
 
 扫描 content/ 目录下的所有 JSON 文件，提取元数据，
 生成 registry_index.json 的 sources 列表。
