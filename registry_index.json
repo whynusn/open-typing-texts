@@ -1,7 +1,25 @@
 {
   "version": 1,
-  "updated_at": "2026-07-05T04:17:13+00:00",
+  "updated_at": "2026-07-05T04:50:03+00:00",
   "sources": [
+    {
+      "id": 0,
+      "source_key": "daily",
+      "label": "史记·陈涉世家",
+      "description": "每日精选文章 2026-07-05",
+      "category": "daily",
+      "update_freq": "daily",
+      "has_ranking": false
+    },
+    {
+      "id": 0,
+      "source_key": "jisubei-2026-07-05",
+      "label": "大模型内容同质化：AI正在扼杀原创思考",
+      "description": "极速杯每日挑战 2026-07-05",
+      "category": "jisubei",
+      "update_freq": "daily",
+      "has_ranking": false
+    },
     {
       "id": 0,
       "source_key": "static-classic-sentences",
