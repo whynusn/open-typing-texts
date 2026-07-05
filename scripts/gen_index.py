@@ -44,12 +44,21 @@ def build_index() -> None:
         if not isinstance(metadata, dict):
             metadata = {}
 
+        # 计算字数（正文字符数），用于客户端展示
+        text_content = data.get("content", "")
+        if not isinstance(text_content, str):
+            text_content = ""
+        char_count = len(text_content)
+        if isinstance(metadata.get("char_count"), int):
+            char_count = metadata["char_count"]
+
         source = {
             "id": 0,
             "source_key": source_key,
             "label": data.get("title", source_key),
             "description": metadata.get("description", f"{source_key} 文本源"),
             "category": metadata.get("category", "static"),
+            "charCount": char_count,
             "update_freq": _infer_update_freq(source_key, fpath.name),
             "has_ranking": False,  # 结构兼容字段：registry 源恒为 SERVER_RESOLVED
         }
@@ -67,7 +76,7 @@ def build_index() -> None:
 
 def _infer_update_freq(source_key: str, filename: str) -> str:
     """根据 source_key 推断更新频率。"""
-    if source_key == "daily" or source_key.startswith("jisubei-"):
+    if source_key in ("daily", "jisubei"):
         return "daily"
     return "static"
 

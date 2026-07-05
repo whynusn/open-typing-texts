@@ -40,7 +40,7 @@ SAIWEN_API_URL = os.getenv(
 
 # 目标文件路径（相对于仓库根目录）
 CONTENT_DIR = Path(__file__).resolve().parent.parent / "content"
-OUTPUT_FILENAME = "jisubei-{date}.json"
+OUTPUT_FILENAME = "jisubei.json"
 
 # ── 加密参数（与 1.x Crypt.py 完全一致）──────────────────────────────
 KEY = b"c9ec834c80f77237"
@@ -126,7 +126,9 @@ def fetch_jisubei(date_str: str, dry_run: bool = False) -> bool:
 
     if not content:
         print("[fetch_jisubei] 源站未返回有效文本内容")
-        print(f"[fetch_jisubei] 原始响应: {json.dumps(res_data, ensure_ascii=False)[:200]}")
+        print(
+            f"[fetch_jisubei] 原始响应: {json.dumps(res_data, ensure_ascii=False)[:200]}"
+        )
         return False
 
     title = title or f"极速杯 {date_str}"
@@ -137,21 +139,22 @@ def fetch_jisubei(date_str: str, dry_run: bool = False) -> bool:
         print(f"[fetch_jisubei] 内容预览: {content[:50]}...")
         return True
 
-    # 构建 registry 标准内容
+    # 构建 registry 标准内容（固定 source_key，单文件覆盖）
     jisubei_content = {
-        "source_key": f"jisubei-{date_str}",
+        "source_key": "jisubei",
         "title": title,
         "content": content,
         "text_id": None,
         "metadata": {
-            "description": f"极速杯每日挑战 {date_str}",
+            "description": f"极速杯每日挑战（最后更新 {date_str}）",
             "category": "jisubei",
             "tags": ["极速杯", "每日挑战"],
             "source_url": "https://www.52dazi.cn",
+            "date": date_str,
         },
     }
 
-    output_path = CONTENT_DIR / OUTPUT_FILENAME.format(date=date_str)
+    output_path = CONTENT_DIR / OUTPUT_FILENAME
     _write_content(output_path, jisubei_content)
     print(f"[fetch_jisubei] 已写入 {output_path}")
     return True

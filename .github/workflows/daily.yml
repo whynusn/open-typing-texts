@@ -9,7 +9,7 @@ on:
         default: ""
 
 permissions:
-  contents: write
+  contents: write  # git-auto-commit-action 需要 push 权限
 
 concurrency:
   group: registry-daily
