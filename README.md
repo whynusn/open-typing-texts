@@ -2,60 +2,88 @@
 
 > 开源中文打字文本库。为中文跟打器提供每日更新的练习文本，由 GitHub Actions 自动抓取、客户端只读使用。
 
-## 仓库结构
+任何打字练习应用均可接入：配置一个 CDN 地址，即可获取全部文本。
 
-```
-open-typing-texts/
-├── registry_index.json       ← 文本目录（含标题、字数等）
-├── content/                  ← 各文本正文 JSON
-│   ├── static-classic-sentences.json  ← 经典中文短句（静态）
-│   ├── jisubei.json                   ← 极速杯每日挑战（每日更新）
-│   └── ...
-├── scripts/                  ← CI 抓取脚本
-│   ├── fetch_daily.py
-│   ├── fetch_jisubei.py
-│   └── gen_index.py          ← 自动扫描 content/ 生成索引
-└── .github/workflows/
-    └── daily.yml             ← 每日 0 点 + 手动触发（各脚本自行决定更新频率）
-```
+---
 
-## 接入方式
+## 1. 快速开始（使用者）
 
-配置你的客户端指向 CDN 即可使用：
-
-```
-primary_url = https://cdn.jsdelivr.net/gh/whynusn/open-typing-texts@main
-```
-
-客户端发起 HTTP GET：
-- `/registry_index.json` — 获取文本目录
-- `/content/{source_key}.json` — 获取单篇正文
-
-## 文本文件 schema
+在你的跟打器配置中添加：
 
 ```json
 {
-  "source_key": "static-classic-sentences",
-  "title": "经典中文短句练习",
-  "content": "春风又绿江南岸...",
+  "registry": {
+    "primary_url": "https://cdn.jsdelivr.net/gh/whynusn/open-typing-texts@main",
+    "mirror_url": "https://raw.githubusercontent.com/whynusn/open-typing-texts/main",
+    "cache_ttl_seconds": 3600,
+    "max_content_bytes": 1048576
+  }
+}
+```
+
+客户端发起两次 HTTP GET 即可使用：
+
+| 请求 | 说明 |
+|:---|:---|
+| `GET /registry_index.json` | 获取文本目录（含标题、字数等元数据） |
+| `GET /content/{source_key}.json` | 获取单篇正文 |
+
+详见 [typetype 接入示例](docs/SCRIPT_GUIDE.md#客户端接入示例)。
+
+---
+
+## 2. 数据架构
+
+```
+用户跟打器
+  │  HTTP GET（只读）
+  ▼
+┌─────────────────────────────────────────────────────┐
+│  CDN（jsDelivr / GitHub raw）                       │
+│  registry_index.json  ← 文本目录（轻量）             │
+│  content/{key}.json   ← 单篇正文（按需加载）         │
+└─────────────────────────────────────────────────────┘
+         ↑
+         │  GitHub Actions CI（每日自动抓取）
+         │
+┌─────────────────────────────────────────────────────┐
+│  scripts/fetch_*.py   ← 各文本源抓取脚本             │
+│  scripts/gen_index.py ← 索引生成器                   │
+└─────────────────────────────────────────────────────┘
+```
+
+**设计原则**：CI 是唯一的写入者，客户端只读不写。
+
+---
+
+## 3. 数据规格
+
+### 3.1 文本文件 `content/{source_key}.json`
+
+```json
+{
+  "source_key": "jisubei",
+  "title": "大模型内容同质化",
+  "content": "正文内容...",
+  "text_id": null,
   "metadata": {
-    "description": "精选经典中文短句",
-    "category": "static",
-    "tags": ["经典", "短句"]
+    "description": "极速杯每日挑战",
+    "category": "daily",
+    "tags": ["极速杯"]
   }
 }
 ```
 
 | 字段 | 类型 | 必填 | 说明 |
 |:---|:---|:---|:---|
-| `source_key` | `str` | ✅ | 唯一标识，与文件名一致（不含 `.json`） |
-| `content` | `str` | ✅ | 正文内容 |
-| `title` | `str` | ❌ | 显示标题 |
-| `metadata` | `dict` | ❌ | 描述、分类、标签等扩展信息 |
+| `source_key` | `string` | ✅ | 唯一标识，与文件名一致（不含 `.json`） |
+| `content` | `string` | ✅ | 正文内容，支持 `\n` 换行 |
+| `title` | `string` | ❌ | 显示标题（缺省时用 `source_key`） |
+| `metadata` | `object` | ❌ | 扩展元数据（描述、分类、标签等） |
 
-## 索引文件 schema
+### 3.2 索引文件 `registry_index.json`
 
-`registry_index.json` 由 `gen_index.py` 自动生成：
+由 `gen_index.py` 自动扫描 `content/` 生成，贡献者无需手动维护：
 
 ```json
 {
@@ -63,13 +91,13 @@ primary_url = https://cdn.jsdelivr.net/gh/whynusn/open-typing-texts@main
   "updated_at": "2026-07-05T00:00:00Z",
   "sources": [
     {
-      "id": 1001,
-      "source_key": "static-classic-sentences",
-      "label": "经典中文短句",
-      "description": "精选经典中文短句，适合中文打字练习",
-      "category": "static",
-      "charCount": 350,
-      "update_freq": "static",
+      "id": 0,
+      "source_key": "jisubei",
+      "label": "极速杯每日挑战",
+      "description": "...",
+      "category": "daily",
+      "charCount": 437,
+      "update_freq": "daily",
       "has_ranking": false
     }
   ]
@@ -78,35 +106,65 @@ primary_url = https://cdn.jsdelivr.net/gh/whynusn/open-typing-texts@main
 
 | 字段 | 类型 | 说明 |
 |:---|:---|:---|
-| `source_key` | `str` | 唯一标识，匹配 `content/{key}.json` |
-| `label` | `str` | 显示标题 |
-| `description` | `str` | 详细描述 |
-| `category` | `str` | 分类（`static`/`daily`/`jisubei` 等） |
-| `charCount` | `int` | 正文字符数（从 `content` 自动计算） |
-| `update_freq` | `str` | 更新频率（`static`/`weekly`/`daily`） |
-| `has_ranking` | `bool` | 是否支持排行榜 |
+| `source_key` | `string` | 唯一标识，匹配 `content/{key}.json` |
+| `label` | `string` | 显示标题 |
+| `description` | `string` | 详细描述 |
+| `category` | `string` | 分类（`static`/`daily`/`jisubei` 等） |
+| `charCount` | `number` | 正文字符数（自动计算） |
+| `update_freq` | `string` | 更新频率（`static`/`weekly`/`daily`） |
 
-## 贡献方式
+### 3.3 文件体积限制
 
-1. **添加新文本**：往 `content/` 放入 `{key}.json`，运行 `python scripts/gen_index.py` 更新索引，提交 PR
-2. **添加自动抓取**：在 `scripts/` 写抓取脚本，在 `daily.yml` 添加调用，提交 PR
-3. **手动触发**：GitHub Actions 页面 → `daily.yml` → Run workflow
+| 限制 | 值 | 说明 |
+|:---|:---|:---|
+| 建议单文件上限 | **1 MB** | 超过 1 MB `gen_index.py` 打印警告 |
+| 绝对单文件上限 | **100 MB** | 超过 100 MB 跳过该文件（GitHub 硬性限制） |
+| `text_id` | `number \| null` | 服务端排行榜 ID，registry 源通常为 `null` |
 
-### 抓取脚本更新频率
+---
 
-CI 统一每日运行，各脚本自行判断是否需要真正更新：
+## 4. 贡献指南
 
-| 频率 | 脚本逻辑 |
-|:---|:---|
-| 每日 | 每次都抓 |
-| 每3天 | `if file.exists() and mtime > now - 3days: skip` |
-| 每周 | `if file.exists() and mtime > now - 7days: skip` |
+### 4.1 添加静态文本（无代码）
 
-## 安全模型
+1. 在 `content/` 目录下创建 `{source_key}.json`，遵循 §3.1 schema
+2. 本地运行 `python scripts/gen_index.py` 验证格式正确
+3. 提交 PR，等待合并后 CDN 自动生效
 
-抓取脚本仅在 GitHub Actions CI 运行，输出纯 JSON。客户端只读不执行远程代码，无安全风险。
+### 4.2 添加动态抓取脚本
 
-## 许可证
+适合需要定期从外部源拉取最新文本的场景（如每日一文、极速杯）。
 
-内容：[CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
-代码：MIT
+详见 **[docs/SCRIPT_GUIDE.md](docs/SCRIPT_GUIDE.md)**，包含：
+- 脚本契约（函数签名、输出格式、错误处理）
+- 完整示例模板（带注释，可直接复制修改）
+- 频率控制（脚本内部通过文件 mtime 判断是否需要跳过）
+- 本地测试方法
+- PR 提交清单
+
+### 4.3 配置 workflow 定时任务
+
+所有动态脚本统一在 `.github/workflows/daily.yml` 中调度。CI 每日 0:00 UTC 自动运行，各脚本内部判断是否需要真正更新。
+
+详见 **[docs/WORKFLOW_GUIDE.md](docs/WORKFLOW_GUIDE.md)**，包含：
+- cron 语法详解（每日/每周/每 N 天）
+- 如何添加新的脚本调用
+- 手动触发配置（`workflow_dispatch`）
+- 容错与防并发
+
+---
+
+## 5. 安全模型
+
+- 抓取脚本**仅在 GitHub Actions CI 运行**，输出纯 JSON
+- 客户端只通过 `HTTP GET` 拉取 JSON，**从不执行任何远程代码**
+- `source_key` 有白名单验证（`RegistryTextProvider._validate_source_key`），禁止 `..` 路径穿越
+- 客户端有文件大小限制（`max_content_bytes`，默认 1 MB）
+- 写入使用原子操作（`tmp + replace`），避免半写状态
+
+---
+
+## 6. 许可证
+
+- 文本内容：[CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+- 代码/脚本：MIT
