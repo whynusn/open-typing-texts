@@ -1,17 +1,17 @@
 name: registry-daily
 on:
-  schedule: [{cron: "0 0 * * *"}]      # 每日 0 点 UTC
-  workflow_dispatch:                    # 手动触发全部刷新
+  schedule: [{cron: "0 0 * * *"}]
+  workflow_dispatch:
 
 concurrency:
   group: registry-daily
   cancel-in-progress: false
 
 permissions:
-  contents: write                       # git-auto-commit-action 需要 push 权限
+  contents: write
 
 jobs:
-  refresh:
+  fetch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,20 +23,14 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: content/
-          key: registry-daily-${{ run_id }}
+          key: registry-daily-${{ github.run_id }}
           restore-keys: registry-daily-
 
       - run: pip install httpx pycryptodome
 
-      # === 动态抓取脚本（各脚本自行判断更新频率）===
       - name: 抓取极速杯每日文本
         run: python scripts/fetch_jisubei.py
         continue-on-error: true
-
-      # 待添加更多脚本，如：
-      # - name: 抓取古诗文（每周更新，脚本内判断）
-      #   run: python scripts/fetch_gushiwen.py
-      #   continue-on-error: true
 
       - name: 重生成索引
         run: python scripts/gen_index.py
