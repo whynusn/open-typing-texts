@@ -157,15 +157,19 @@ text = provider.fetch_text_by_key("jisubei")
 - 本地测试方法
 - PR 提交清单
 
-### 4.3 配置 workflow 定时任务
+### 4.3 添加脚本到 workflow
 
-所有动态脚本统一在 `.github/workflows/daily.yml` 中调度。CI 每日 0:00 UTC 自动运行，各脚本内部判断是否需要真正更新。
+完成脚本编写和测试后，在 `.github/workflows/daily.yml` 中添加一行调用：
 
-详见 **[docs/WORKFLOW_GUIDE.md](docs/WORKFLOW_GUIDE.md)**，包含：
-- cron 语法详解（每日/每周/每 N 天）
-- 如何添加新的脚本调用
-- 手动触发配置（`workflow_dispatch`）
-- 容错与防并发
+```yaml
+- name: 抓取 XXX 文本
+  run: python scripts/fetch_xxx.py
+  continue-on-error: true
+```
+
+CI 每日 0:00 UTC 自动运行全部脚本，脚本内部自行判断是否需要更新。
+
+如无特殊情况，无需修改 workflow 定时配置。
 
 ---
 
