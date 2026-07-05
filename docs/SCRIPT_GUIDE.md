@@ -213,7 +213,7 @@ cat registry_index.json | python3 -m json.tool
 - [ ] 失败时 `return False`，不写入文件
 - [ ] `--dry-run` 只测试不写入
 - [ ] 本地运行 `gen_index.py` 生成正确的索引条目
-- [ ] 在 `.github/workflows/daily.yml` 中添加调用（参见 [WORKFLOW_GUIDE.md](WORKFLOW_GUIDE.md)）
+- [ ] 在 `.github/workflows/daily.yml` 中添加一行调用（参见 [WORKFLOW_GUIDE.md](WORKFLOW_GUIDE.md)）
 - [ ] 已在 PR 描述中说明文本源和更新频率
 
 ---

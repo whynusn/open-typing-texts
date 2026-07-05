@@ -28,7 +28,26 @@
 | `GET /registry_index.json` | 获取文本目录（含标题、字数等元数据） |
 | `GET /content/{source_key}.json` | 获取单篇正文 |
 
-详见 [typetype 接入示例](docs/SCRIPT_GUIDE.md#客户端接入示例)。
+### 客户端接入示例
+
+```python
+from backend.integration.registry_text_provider import RegistryTextProvider
+from backend.config.runtime_config import RegistryConfig
+
+provider = RegistryTextProvider(
+    config=RegistryConfig(
+        primary_url="https://cdn.jsdelivr.net/gh/whynusn/open-typing-texts@main",
+        mirror_url="https://raw.githubusercontent.com/whynusn/open-typing-texts/main",
+    ),
+    cache_dir=Path.home() / ".cache" / "typetype" / "registry",
+)
+
+# 获取文本源目录
+catalog = provider.get_catalog()
+
+# 获取单篇文本
+text = provider.fetch_text_by_key("jisubei")
+```
 
 ---
 
@@ -78,7 +97,7 @@
 |:---|:---|:---|:---|
 | `source_key` | `string` | ✅ | 唯一标识，与文件名一致（不含 `.json`） |
 | `content` | `string` | ✅ | 正文内容，支持 `\n` 换行 |
-| `title` | `string` | ❌ | 显示标题（缺省时用 `source_key`） |
+| `title` | `string` | ❌ | 显示标题（索引缺省时用 `source_key`，正文缺省为空） |
 | `metadata` | `object` | ❌ | 扩展元数据（描述、分类、标签等） |
 
 ### 3.2 索引文件 `registry_index.json`
@@ -119,7 +138,7 @@
 |:---|:---|:---|
 | 建议单文件上限 | **1 MB** | 超过 1 MB `gen_index.py` 打印警告 |
 | 绝对单文件上限 | **100 MB** | 超过 100 MB 跳过该文件（GitHub 硬性限制） |
-| `text_id` | `number \| null` | 服务端排行榜 ID，registry 源通常为 `null` |
+| `text_id` | `number \| null` | 用于成绩提交排行榜（纯文本源留 `null`） |
 
 ---
 
