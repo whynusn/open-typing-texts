@@ -144,7 +144,6 @@ def fetch_jisubei(date_str: str, dry_run: bool = False) -> bool:
         "source_key": "jisubei",
         "title": title,
         "content": content,
-        "text_id": None,
         "metadata": {
             "description": f"极速杯每日挑战（最后更新 {date_str}）",
             "category": "jisubei",

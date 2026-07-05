@@ -84,7 +84,6 @@ text = provider.fetch_text_by_key("jisubei")
   "source_key": "jisubei",
   "title": "大模型内容同质化",
   "content": "正文内容...",
-  "text_id": null,
   "metadata": {
     "description": "极速杯每日挑战",
     "category": "daily",
@@ -97,7 +96,7 @@ text = provider.fetch_text_by_key("jisubei")
 |:---|:---|:---|:---|
 | `source_key` | `string` | ✅ | 唯一标识，与文件名一致（不含 `.json`） |
 | `content` | `string` | ✅ | 正文内容，支持 `\n` 换行 |
-| `title` | `string` | ❌ | 显示标题（索引缺省时用 `source_key`，正文缺省为空） |
+| `title` | `string` | ❌ | 显示标题（缺省时用 `source_key`） |
 | `metadata` | `object` | ❌ | 扩展元数据（描述、分类、标签等） |
 
 ### 3.2 索引文件 `registry_index.json`
@@ -110,14 +109,12 @@ text = provider.fetch_text_by_key("jisubei")
   "updated_at": "2026-07-05T00:00:00Z",
   "sources": [
     {
-      "id": 0,
       "source_key": "jisubei",
       "label": "极速杯每日挑战",
       "description": "...",
-      "category": "daily",
       "charCount": 437,
-      "update_freq": "daily",
-      "has_ranking": false
+      "category": "daily",
+      "update_freq": "daily"
     }
   ]
 }
@@ -128,17 +125,16 @@ text = provider.fetch_text_by_key("jisubei")
 | `source_key` | `string` | 唯一标识，匹配 `content/{key}.json` |
 | `label` | `string` | 显示标题 |
 | `description` | `string` | 详细描述 |
-| `category` | `string` | 分类（`static`/`daily`/`jisubei` 等） |
 | `charCount` | `number` | 正文字符数（自动计算） |
+| `category` | `string` | 分类（`static`/`daily` 等） |
 | `update_freq` | `string` | 更新频率（`static`/`weekly`/`daily`） |
 
 ### 3.3 文件体积限制
 
 | 限制 | 值 | 说明 |
 |:---|:---|:---|
-| 建议单文件上限 | **1 MB** | 超过 1 MB `gen_index.py` 打印警告 |
+| 建议单文件上限 | **1 MB** | 超过 1 MB 时 `gen_index.py` 打印警告 |
 | 绝对单文件上限 | **100 MB** | 超过 100 MB 跳过该文件（GitHub 硬性限制） |
-| `text_id` | `number \| null` | 用于成绩提交排行榜（纯文本源留 `null`） |
 
 ---
 

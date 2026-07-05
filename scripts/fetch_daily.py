@@ -72,7 +72,6 @@ def fetch_daily(date_str: str, dry_run: bool = False) -> bool:
         "source_key": "daily",
         "content": content,
         "title": data.get("from", f"每日一文 {date_str}"),
-        "text_id": None,
         "metadata": {
             "description": f"每日精选文章 {date_str}",
             "category": "daily",

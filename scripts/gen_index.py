@@ -65,14 +65,12 @@ def build_index() -> None:
             char_count = metadata["char_count"]
 
         source = {
-            "id": 0,
             "source_key": source_key,
             "label": data.get("title", source_key),
             "description": metadata.get("description", f"{source_key} 文本源"),
-            "category": metadata.get("category", "static"),
             "charCount": char_count,
+            "category": metadata.get("category", "static"),
             "update_freq": _infer_update_freq(source_key, fpath.name),
-            "has_ranking": False,  # 结构兼容字段：registry 源恒为 SERVER_RESOLVED
         }
         sources.append(source)
 
@@ -81,6 +79,21 @@ def build_index() -> None:
         "updated_at": _now_iso(),
         "sources": sources,
     }
+
+    # 仅在内容真正变化时写入（忽略 updated_at），避免每日空 commit
+    if INDEX_PATH.exists():
+        try:
+            old_data = json.loads(INDEX_PATH.read_text(encoding="utf-8"))
+            old_sources = old_data.get("sources", [])
+            new_sources = index.get("sources", [])
+            if (
+                old_sources == new_sources
+                and old_data.get("version") == index.get("version")
+            ):
+                print(f"[gen_index] 内容无变化，跳过写入 ({len(sources)} 个源)")
+                return
+        except (OSError, json.JSONDecodeError):
+            pass  # 读取失败则继续写入
 
     _write_index(INDEX_PATH, index)
     print(f"[gen_index] 已写入 {INDEX_PATH} ({len(sources)} 个源)")
