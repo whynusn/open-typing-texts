@@ -7,6 +7,13 @@ import threading
 import time
 from pathlib import Path
 
+try:
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    HAS_WATCHDOG = True
+except ImportError:
+    HAS_WATCHDOG = False
+
 
 def _find_python():
     """找到真正的 Python 解释器（避开 Electron AppImage 包装器）。"""
@@ -97,8 +104,58 @@ def rebuild_index(data_dir):
 # ── 热更新：监控 scripts/ 目录 ─────────────────────────────────────
 
 def start_hot_reload(data_dir, interval=30):
-    """后台线程：检测到新脚本时自动抓取并重建索引。"""
+    """监控 scripts/ 目录，检测到新脚本时自动抓取并重建索引。
+
+    优先使用 watchdog（事件驱动），不可用时回退到轮询。
+    """
     scripts_dir = (data_dir / "scripts").resolve()
+
+    if HAS_WATCHDOG:
+        _start_watchdog(scripts_dir, data_dir)
+    else:
+        _start_polling(scripts_dir, data_dir, interval)
+
+
+def _start_watchdog(scripts_dir, data_dir):
+    """使用 watchdog 事件驱动监控。"""
+
+    class Handler(FileSystemEventHandler):
+        def __init__(self):
+            self.known = set(s.name for s in scripts_dir.glob("fetch_*.py")) if scripts_dir.exists() else set()
+
+        def on_created(self, event):
+            if event.is_directory or not event.src_path.endswith(".json"):
+                name = Path(event.src_path).name
+                if name.startswith("fetch_") and name.endswith(".py"):
+                    self._handle_new(name)
+
+        def on_deleted(self, event):
+            if not event.is_directory:
+                name = Path(event.src_path).name
+                if name.startswith("fetch_") and name.endswith(".py"):
+                    self.known.discard(name)
+                    rebuild_index(data_dir)
+
+        def _handle_new(self, name):
+            script = scripts_dir / name
+            if script.exists():
+                print(f"[hot-reload] 发现新脚本: {name}")
+                ok, output = run_script(script)
+                if not ok:
+                    print(f"[hot-reload] {name} 失败: {output[:100]}")
+                self.known.add(name)
+                rebuild_index(data_dir)
+
+    handler = Handler()
+    observer = Observer()
+    observer.schedule(handler, str(scripts_dir), recursive=False)
+    observer.daemon = True
+    observer.start()
+    print(f"[hot-reload] 已启用（watchdog 事件驱动）")
+
+
+def _start_polling(scripts_dir, data_dir, interval):
+    """使用轮询监控（watchdog 不可用时的回退）。"""
     known_scripts = set(s.name for s in scripts_dir.glob("fetch_*.py")) if scripts_dir.exists() else set()
 
     def _watch():
@@ -112,14 +169,11 @@ def start_hot_reload(data_dir, interval=30):
                     print(f"[hot-reload] 发现新脚本: {', '.join(new_scripts)}")
                     for name in new_scripts:
                         script = scripts_dir / name
-                        print(f"[hot-reload] 检查 {name}: exists={script.exists()}")
                         if script.exists():
-                            ok, output = run_script(script)
-                            print(f"[hot-reload] 运行 {name}: ok={ok} output={output[:80]}")
+                            run_script(script)
                     rebuild_index(data_dir)
                     known_scripts = current
                 elif current != known_scripts:
-                    # 脚本被删除或修改，重建索引
                     rebuild_index(data_dir)
                     known_scripts = current
             except Exception as e:
@@ -127,7 +181,7 @@ def start_hot_reload(data_dir, interval=30):
 
     t = threading.Thread(target=_watch, daemon=True)
     t.start()
-    print(f"[hot-reload] 已启用，检测间隔: {interval}s")
+    print(f"[hot-reload] 已启用（轮询间隔: {interval}s，安装 watchdog 可升级为事件驱动）")
 
 
 # ── 自托管：自动 pull → fetch → commit → push ────────────────────
