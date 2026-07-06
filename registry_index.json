@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-06T03:36:50+00:00",
+  "sources": [
+    {
+      "source_key": "daily",
+      "label": "古诗十九首",
+      "description": "每日精选文章 2026-07-06",
+      "charCount": 12,
+      "category": "daily",
+      "update_freq": "daily"
+    }
+  ]
+}

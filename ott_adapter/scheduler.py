@@ -81,7 +81,7 @@ def run_all_fetches(data_dir, force=False):
         if not force:
             key = s.stem.replace("fetch_", "")
             existing = data_dir / "content" / f"{key}.json"
-            if existing.exists() and (time.time() - existing.stat.st_mtime) < 72000:
+            if existing.exists() and (time.time() - existing.stat().st_mtime) < 72000:
                 continue
         success, output = run_script(s)
         if success:
