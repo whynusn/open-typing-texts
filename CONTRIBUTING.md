@@ -101,7 +101,7 @@ if __name__ == "__main__":
   "title": "显示名称",
   "content": "正文内容（必填，字符串）",
   "metadata": {
-    "description": "《出处》作者（必有意义，禁止 YYYY-MM-DD 模板）",
+    "description": "正文前80字摘要或来源信息（自由格式）",
     "category": "daily",
     "tags": ["标签"],
     "date": "2026-07-05"
@@ -193,4 +193,4 @@ git push origin add-mysource
 - **错误处理**：网络失败时优雅退出，不写入损坏文件
 - **原子写入**：使用 `tmp + replace` 避免半写状态
 - **source_key**：只用字母、数字、下划线，不含 `/` `.` `..`
-- **描述必须有意义**：`metadata.description` 应说明文本来源、作者或主题（如 `《唐诗三百首》李白`）。**禁止** `每日精选 {date}` 等无意义模板字符串
+- `metadata.description` 为自由格式，建议根据文本类型选择：短文可用出处+作者，长文可用正文摘要

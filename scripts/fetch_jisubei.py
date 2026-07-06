@@ -130,8 +130,8 @@ def fetch_jisubei(date_str: str, dry_run: bool = False) -> bool:
         print(f"[fetch_jisubei] 内容预览: {content[:50]}...")
         return True
 
-    # 描述：使用文章标题（最有意义的描述）
-    description = title
+    # 描述：正文前 80 字（避免与标题重复，同时预览内容）
+    description = content[:80].replace("\n", " ").strip()
 
     # 构建 registry 标准内容（固定 source_key，单文件覆盖）
     jisubei_content = {
