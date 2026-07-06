@@ -130,13 +130,16 @@ def fetch_jisubei(date_str: str, dry_run: bool = False) -> bool:
         print(f"[fetch_jisubei] 内容预览: {content[:50]}...")
         return True
 
+    # 描述：使用文章标题（最有意义的描述）
+    description = title
+
     # 构建 registry 标准内容（固定 source_key，单文件覆盖）
     jisubei_content = {
         "source_key": "jisubei",
         "title": title,
         "content": content,
         "metadata": {
-            "description": f"极速杯每日挑战（最后更新 {date_str}）",
+            "description": description,
             "category": "jisubei",
             "tags": ["极速杯", "每日挑战"],
             "source_url": "https://www.52dazi.cn",

@@ -114,7 +114,7 @@ OTT 使用两个层级的 JSON 文件：
 
 | 字段 | 类型 | 必填 | 说明 |
 |:---|:---|:---|:---|
-| `description` | `string` | ❌ | 详细描述 |
+| `description` | `string` | ❌ | 描述（**必须有意义**，说明文本来源/作者/主题，禁止"每日 {date}"等无意义模板） |
 | `category` | `string` | ❌ | 分类 |
 | `tags` | `array[string]` | ❌ | 标签列表 |
 | `date` | `string` | ❌ | 文本日期（ISO 8601） |
