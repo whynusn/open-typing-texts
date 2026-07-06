@@ -13,5 +13,8 @@ dependencies = [
     "watchdog>=6.0.0",     # 文件变更事件驱动（热更新）
 ]
 
+[tool.setuptools]
+packages = ["ott_adapter"]
+
 [project.scripts]
 ott-adapter = "ott_adapter.__main__:main"

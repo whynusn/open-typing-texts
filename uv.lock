@@ -72,25 +72,20 @@ wheels = [
 
 [[package]]
 name = "ott-adapter"
-version = "0.4.0"
+version = "0.5.0"
 source = { editable = "." }
-
-[package.optional-dependencies]
-fetch = [
+dependencies = [
     { name = "httpx" },
     { name = "pycryptodome" },
-]
-watch = [
     { name = "watchdog" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "httpx", marker = "extra == 'fetch'", specifier = ">=0.28.1" },
-    { name = "pycryptodome", marker = "extra == 'fetch'", specifier = ">=3.23.0" },
-    { name = "watchdog", marker = "extra == 'watch'", specifier = ">=6.0.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "pycryptodome", specifier = ">=3.23.0" },
+    { name = "watchdog", specifier = ">=6.0.0" },
 ]
-provides-extras = ["fetch", "watch"]
 
 [[package]]
 name = "pycryptodome"

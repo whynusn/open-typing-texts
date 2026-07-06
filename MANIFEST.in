@@ -1,0 +1,6 @@
+include README.md
+include CONTRIBUTING.md
+include SPEC.md
+include pyproject.toml
+recursive-include scripts *.py
+recursive-include ott_adapter *.py
