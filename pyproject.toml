@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ott-adapter"
-version = "0.1.0"
-description = "本地 HTTP 适配器，为 typetype 等打字练习应用提供 OTT 文本服务"
+version = "0.3.0"
+description = "OTT 本地适配器 — 一键 WEB 服务器 + 热更新 + 自托管"
 requires-python = ">=3.12"
 dependencies = []
 
+[project.optional-dependencies]
+fetch = ["httpx>=0.28.1", "pycryptodome>=3.23.0"]
+
 [project.scripts]
 ott-adapter = "ott_adapter.__main__:main"
-
-[tool.setuptools.packages.find]
-where = ["src"]
