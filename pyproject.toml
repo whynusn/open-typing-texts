@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ott-adapter"
-version = "0.3.0"
-description = "OTT 本地适配器 — 一键 WEB 服务器 + 热更新 + 自托管"
+version = "0.4.0"
+description = "OTT 本地适配器 — 一键 WEB 服务器 + 热更新"
 requires-python = ">=3.12"
 dependencies = []
 
