@@ -36,9 +36,13 @@ def run_script(script_path, timeout=60):
     try:
         r = subprocess.run([_PYTHON, str(script_path)], cwd=script_path.parent.parent,
                            capture_output=True, text=True, timeout=timeout)
-        return r.returncode == 0, r.stdout.strip()
+        if r.returncode != 0:
+            # 合并 stdout + stderr 用于诊断
+            msg = (r.stdout + "\n" + r.stderr).strip()
+            return False, msg.split("\n")[-1][:200]  # 只取最后一行关键信息
+        return True, r.stdout.strip()
     except subprocess.TimeoutExpired:
-        return False, "timeout"
+        return False, "执行超时"
     except Exception as e:
         return False, str(e)
 

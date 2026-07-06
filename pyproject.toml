@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ott-adapter"
-version = "0.4.0"
-description = "OTT 本地适配器 — 一键 WEB 服务器 + 热更新"
+version = "0.5.0"
+description = "OTT 本地适配器 — 一键 WEB 服务器 + 热更新 + 自托管"
 requires-python = ">=3.12"
-dependencies = []
-
-[project.optional-dependencies]
-fetch = ["httpx>=0.28.1", "pycryptodome>=3.23.0"]
-watch = ["watchdog>=6.0.0"]
+dependencies = [
+    "httpx>=0.28.1",       # HTTP 客户端（fetch 脚本必需）
+    "pycryptodome>=3.23.0", # AES 加密（极速杯脚本需要）
+    "watchdog>=6.0.0",     # 文件变更事件驱动（热更新）
+]
 
 [project.scripts]
 ott-adapter = "ott_adapter.__main__:main"
