@@ -15,26 +15,10 @@ except ImportError:
     HAS_WATCHDOG = False
 
 
-def _find_python():
-    """找到真正的 Python 解释器（避开 Electron AppImage 包装器）。"""
-    candidates = ["/usr/bin/python3", "/usr/local/bin/python3", sys.executable]
-    for path in candidates:
-        if not path:
-            continue
-        try:
-            r = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=5)
-            if r.returncode == 0 and "Python" in r.stdout:
-                return path
-        except Exception:
-            continue
-    return "python3"
-
-_PYTHON = _find_python()
-
-
 def run_script(script_path, timeout=60):
+    """运行脚本，使用当前 Python 解释器（保证 venv 依赖可用）。"""
     try:
-        r = subprocess.run([_PYTHON, str(script_path)], cwd=script_path.parent.parent,
+        r = subprocess.run([sys.executable, str(script_path)], cwd=script_path.parent.parent,
                            capture_output=True, text=True, timeout=timeout)
         if r.returncode != 0:
             # 合并 stdout + stderr 用于诊断
