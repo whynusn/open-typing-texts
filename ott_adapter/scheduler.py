@@ -174,3 +174,20 @@ def _start_polling(scripts_dir, data_dir, interval):
 
     threading.Thread(target=_watch, daemon=True).start()
     print(f"[hot-reload] 已启用（轮询 {interval}s，装 watchdog 升级事件驱动）")
+
+
+def start_background_refresh(data_dir, interval):
+    """定时刷新（不推送）。"""
+    if interval == "once":
+        return
+    secs = {"hourly": 3600, "daily": 86400}.get(interval)
+    if not secs:
+        return
+
+    def _loop():
+        while True:
+            time.sleep(secs)
+            run_all_fetches(data_dir)
+            rebuild_index(data_dir)
+
+    threading.Thread(target=_loop, daemon=True).start()
