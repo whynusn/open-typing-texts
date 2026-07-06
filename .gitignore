@@ -22,3 +22,4 @@ content/
 # OS
 .DS_Store
 Thumbs.db
+registry_index.json
