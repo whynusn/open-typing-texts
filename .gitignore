@@ -24,3 +24,10 @@ content/
 Thumbs.db
 registry_index.json
 content/
+
+# Tooling
+.omo/
+.opencode/
+
+# Runtime state
+schedules.json
