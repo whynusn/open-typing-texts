@@ -11,7 +11,7 @@ import subprocess
 import sys
 import time
 import uuid
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 from .scheduler import run_script, rebuild_index
@@ -252,11 +252,7 @@ class OttHandler(BaseHTTPRequestHandler):
                 "sources": len(sources),
                 "scripts": len(scripts),
                 "active_schedules": n_enabled,
-"entries": sum(
-    len(json.loads(f.read_text(encoding="utf-8")).get("entries", []))
-    for f in (dd / "content").glob("*.json")
-    if f.is_file()
-) if (dd / "content").exists() else 0,
+                "entries": sum(s.get("entries_count", 0) for s in sources),
             },
             "data_dir": str(dd.resolve()),
         })
@@ -978,7 +974,7 @@ def _validate_ott_json(data: dict) -> dict:
 
 def start_server(port, data_dir):
     OttHandler.data_dir = Path(data_dir)
-    server = HTTPServer(("127.0.0.1", port), OttHandler)
+    server = ThreadingHTTPServer(("127.0.0.1", port), OttHandler)
     print(f" OTT 适配器 v2 已启动")
     print(f"   地址: http://127.0.0.1:{port}")
     print(f"   数据: {data_dir}")
