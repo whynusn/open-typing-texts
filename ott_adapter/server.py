@@ -176,6 +176,9 @@ class OttHandler(BaseHTTPRequestHandler):
             if method == "POST":
                 return self._api_script_cron_set(name)
 
+        if method == "GET" and path == "/api/entries/recent":
+            return self._api_entries_recent()
+
         if method == "GET" and path == "/api/entries":
             return self._api_entries()
 
@@ -643,6 +646,31 @@ class OttHandler(BaseHTTPRequestHandler):
 
         _save_schedules(self.data_dir, schedules)
         _json_resp(self, {"ok": True, **schedules["schedules"][name]})
+
+    # ── API: 最近条目（仪表盘用，不含全文） ────────────────
+
+    def _api_entries_recent(self):
+        content_dir = self.data_dir / "content"
+        recent = []
+        if content_dir.exists():
+            for f in content_dir.glob("*.json"):
+                try:
+                    d = json.loads(f.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                sk = d.get("source_key", f.stem)
+                entries = d.get("entries", [])
+                if not entries and d.get("content"):
+                    entries = [{"title": d.get("title", ""), "fetched_at": ""}]
+                for e in entries:
+                    recent.append({
+                        "source_key": sk,
+                        "title": e.get("title", sk),
+                        "fetched_at": e.get("fetched_at", ""),
+                    })
+            recent.sort(key=lambda x: x["fetched_at"], reverse=True)
+            recent = recent[:5]
+        _json_resp(self, {"entries": recent})
 
     # ── API: 全部条目 ─────────────────────────────────────
 
@@ -1701,15 +1729,14 @@ function copyText(t) {
 async function renderDashboard() {
   document.getElementById('dash-stats').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try {
-    const [status, sources, entriesData] = await Promise.all([
-      api('GET', '/api/status'), api('GET', '/api/sources'), api('GET', '/api/entries')
+    const [status, sources, recentData] = await Promise.all([
+      api('GET', '/api/status'), api('GET', '/api/sources'), api('GET', '/api/entries/recent')
     ]);
     state.status = status;
     state.sources = sources.sources || [];
-    state.entries = entriesData.entries || [];
-    document.getElementById('lib-badge').textContent = state.entries.length;
+    document.getElementById('lib-badge').textContent = status.stats.entries;
     renderDashStats(status, sources);
-    renderDashRecent(state.entries);
+    renderDashRecent(recentData.entries || []);
     fetchAndRenderDashScripts();
     renderDashSysInfo(status);
   } catch(e) {
