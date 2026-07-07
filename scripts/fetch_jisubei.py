@@ -140,26 +140,55 @@ def fetch_jisubei(date_str: str, dry_run: bool = False) -> bool:
         "content": content,
         "metadata": {
             "description": description,
-            "category": "jisubei",
+            "category": "极速杯",
             "tags": ["极速杯", "每日挑战"],
             "source_url": "https://www.52dazi.cn",
             "date": date_str,
         },
     }
 
-    output_path = CONTENT_DIR / OUTPUT_FILENAME
-    _write_content(output_path, jisubei_content)
-    print(f"[fetch_jisubei] 已写入 {output_path}")
+    _append_entry(jisubei_content)
+    print(f"[fetch_jisubei] 已追加 — {len(jisubei_content.get('entries', []))} 篇")
     return True
 
 
-def _write_content(path: Path, data: dict) -> None:
-    """原子写入内容文件（tmp + replace）。"""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(f"{path.suffix}.tmp")
-    with tmp_path.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    tmp_path.replace(path)
+def _append_entry(entry: dict) -> None:
+    """追加一条记录，自动迁移旧格式，顶层保留最新内容。"""
+    output_path = CONTENT_DIR / OUTPUT_FILENAME
+    source_key = entry.pop("source_key", "jisubei")
+    d = {"source_key": source_key, "entries": []}
+    if output_path.exists():
+        d = json.loads(output_path.read_text(encoding="utf-8"))
+    if "entries" not in d and "content" in d:
+        d["entries"] = [{
+            "title": d.pop("title", ""),
+            "content": d.pop("content", ""),
+            "metadata": d.pop("metadata", {}),
+            "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%S+08:00", time.localtime()),
+        }]
+    d.setdefault("entries", [])
+    entry["source_key"] = source_key
+    entry["fetched_at"] = time.strftime("%Y-%m-%dT%H:%M:%S+08:00", time.localtime())
+    content = entry.get("content", "")
+    for i, e in enumerate(d["entries"]):
+        if e.get("content") == content:
+            d["entries"][i] = entry
+            d["title"] = entry.get("title", "")
+            d["content"] = content
+            d["metadata"] = entry.get("metadata", {})
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = output_path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+            tmp.replace(output_path)
+            return
+    d["entries"].append(entry)
+    d["title"] = entry.get("title", "")
+    d["content"] = entry.get("content", "")
+    d["metadata"] = entry.get("metadata", {})
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = output_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(output_path)
 
 
 def main() -> int:
