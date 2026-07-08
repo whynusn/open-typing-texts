@@ -9,8 +9,10 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -56,41 +58,97 @@ def _err(self, msg, status=400):
 
 # ── 调度器集成 ───────────────────────────────────────────────
 
+_cache: dict[str, tuple[float, dict]] = {}
+_CACHE_TTL = 2.0
+_write_locks: dict[str, threading.Lock] = {}
+_schedule_lock = threading.Lock()
+_write_locks_lock = threading.Lock()  # protect _write_locks dict itself
+
+
+def _get_write_lock(key: str) -> threading.Lock:
+    with _write_locks_lock:
+        if key not in _write_locks:
+            _write_locks[key] = threading.Lock()
+        return _write_locks[key]
+
+
+def _cache_get(key: str) -> dict | None:
+    entry = _cache.get(key)
+    if entry is not None and time.time() - entry[0] < _CACHE_TTL:
+        return entry[1]
+    return None
+
+
+def _cache_set(key: str, value: dict):
+    _cache[key] = (time.time(), value)
+
+
+def _cache_invalidate(prefix: str = ""):
+    if prefix:
+        to_del = [k for k in _cache if k.startswith(prefix)]
+        for k in to_del:
+            del _cache[k]
+    else:
+        _cache.clear()
+
+
+def _rebuild_and_invalidate(data_dir):
+    """调用 rebuild_index 并使 index cache 失效。"""
+    result = rebuild_index(data_dir)
+    _cache_invalidate(str(data_dir / "registry_index.json"))
+    return result
+
+
 def _get_schedules(data_dir) -> dict:
-    p = data_dir / SCHEDULES_FILE
+    key = str(data_dir / SCHEDULES_FILE)
+    cached = _cache_get(key)
+    if cached is not None:
+        return cached
+    p = Path(key)
     if p.exists():
         try:
-            return json.loads(p.read_text(encoding="utf-8"))
+            d = json.loads(p.read_text(encoding="utf-8"))
+            _cache_set(key, d)
+            return d
         except (json.JSONDecodeError, OSError):
             pass
     return {"schedules": {}}
 
 
 def _save_schedules(data_dir, schedules):
-    p = data_dir / SCHEDULES_FILE
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(schedules, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(p)
+    with _schedule_lock:
+        p = data_dir / SCHEDULES_FILE
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(json.dumps(schedules, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        tmp.replace(p)
+        _cache_invalidate(str(p))
 
 
 def _update_last_run(data_dir, name):
     """同步 schedules.json 中 name 的 last_run 为 content 文件 mtime（口径对齐脚本页）。"""
-    schedules = _get_schedules(data_dir)
-    if name not in schedules.get("schedules", {}):
-        return
-    content_file = data_dir / "content" / f"{name}.json"
-    if content_file.exists():
-        schedules["schedules"][name]["last_run"] = time.strftime(
-            "%Y-%m-%dT%H:%M:%S", time.gmtime(content_file.stat().st_mtime + 8 * 3600)
-        ) + "+08:00"
-        _save_schedules(data_dir, schedules)
+    with _schedule_lock:
+        schedules = _get_schedules(data_dir)
+        if name not in schedules.get("schedules", {}):
+            return
+        content_file = data_dir / "content" / f"{name}.json"
+        if content_file.exists():
+            schedules["schedules"][name]["last_run"] = time.strftime(
+                "%Y-%m-%dT%H:%M:%S", time.gmtime(content_file.stat().st_mtime + 8 * 3600)
+            ) + "+08:00"
+            _save_schedules(data_dir, schedules)
 
 
 def _read_index(data_dir) -> dict:
-    p = data_dir / "registry_index.json"
+    key = str(data_dir / "registry_index.json")
+    cached = _cache_get(key)
+    if cached is not None:
+        return cached
+    p = Path(key)
     if p.exists():
         try:
-            return json.loads(p.read_text(encoding="utf-8"))
+            d = json.loads(p.read_text(encoding="utf-8"))
+            _cache_set(key, d)
+            return d
         except (json.JSONDecodeError, OSError):
             pass
     return {"version": 1, "updated_at": "", "sources": []}
@@ -266,25 +324,13 @@ class OttHandler(BaseHTTPRequestHandler):
         index = _read_index(self.data_dir)
         sources = index.get("sources", [])
 
-        # 注入 content 预览
+        # 预览从索引取，不再读每个 content 文件
         for s in sources:
-            key = s["source_key"]
-            content_file = self.data_dir / "content" / f"{key}.json"
-            if content_file.exists():
-                try:
-                    d = json.loads(content_file.read_text(encoding="utf-8"))
-                    s["_hasContent"] = True
-                    s["_title"] = d.get("title", "")
-                    s["_preview"] = (d.get("content", "") or "")[:120]
-                except Exception:
-                    s["_hasContent"] = False
-                    s["_preview"] = ""
-            else:
-                s["_hasContent"] = False
-                s["_preview"] = ""
-
-            # 检查对应脚本是否存在
-            script = self.data_dir / "scripts" / f"fetch_{key}.py"
+            s["_hasContent"] = bool(s.get("entry_preview") or s.get("title_preview"))
+            s["_title"] = s.get("title_preview", "")
+            s["_preview"] = s.get("entry_preview", "")
+            # 检查对应脚本是否存在（轻量 stat，不读文件内容）
+            script = self.data_dir / "scripts" / f"fetch_{s['source_key']}.py"
             s["_hasScript"] = script.exists()
 
         _json_resp(self, {
@@ -334,12 +380,13 @@ class OttHandler(BaseHTTPRequestHandler):
             data["metadata"]["author"] = author
 
         path = content_dir / f"{source_key}.json"
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp.replace(path)
+        with _get_write_lock(source_key):
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            tmp.replace(path)
 
         # 重建索引
-        rebuild_index(dd)
+        _rebuild_and_invalidate(dd)
 
         _json_resp(self, {"ok": True, "source_key": source_key}, 201)
 
@@ -355,7 +402,7 @@ class OttHandler(BaseHTTPRequestHandler):
             return _err(self, f"source '{key}' 不存在", 404)
 
         content_file.unlink()
-        rebuild_index(dd)
+        _rebuild_and_invalidate(dd)
 
         _json_resp(self, {"ok": True, "source_key": key})
 
@@ -488,7 +535,7 @@ class OttHandler(BaseHTTPRequestHandler):
 
         if success:
             _update_last_run(self.data_dir, name)
-        rebuild_index(self.data_dir)
+        _rebuild_and_invalidate(self.data_dir)
 
         if success:
             content_file = self.data_dir / "content" / f"{name}.json"
@@ -587,17 +634,18 @@ class OttHandler(BaseHTTPRequestHandler):
         old_content = dd / "content" / f"{name}.json"
         new_content = dd / "content" / f"{new_key}.json"
         if old_content.exists():
-            try:
-                d = json.loads(old_content.read_text(encoding="utf-8"))
-                d["source_key"] = new_key
-                tmp = new_content.with_suffix(".tmp")
-                tmp.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
-                tmp.replace(new_content)
-                old_content.unlink()
-            except Exception:
-                pass
+            with _get_write_lock(name):
+                try:
+                    d = json.loads(old_content.read_text(encoding="utf-8"))
+                    d["source_key"] = new_key
+                    tmp = new_content.with_suffix(".tmp")
+                    tmp.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+                    tmp.replace(new_content)
+                    old_content.unlink()
+                except Exception:
+                    pass
 
-        rebuild_index(dd)
+        _rebuild_and_invalidate(dd)
         _json_resp(self, {"ok": True, "old_key": name, "new_key": new_key})
 
     # ── API: Cron 配置 ────────────────────────────────────
@@ -629,48 +677,34 @@ class OttHandler(BaseHTTPRequestHandler):
 
         enabled = body.get("enabled", interval != "manual")
 
-        schedules = _get_schedules(self.data_dir)
-        if "schedules" not in schedules:
-            schedules["schedules"] = {}
+        with _schedule_lock:
+            schedules = _get_schedules(self.data_dir)
+            if "schedules" not in schedules:
+                schedules["schedules"] = {}
 
-        now = time.time()
-        prev = schedules["schedules"].get(name, {})
-        last_run = prev.get("last_run")
+            now = time.time()
+            prev = schedules["schedules"].get(name, {})
+            last_run = prev.get("last_run")
 
-        schedules["schedules"][name] = {
-            "interval": interval,
-            "enabled": enabled,
-            "last_run": last_run,
-            "next_run": _calc_next_run(interval, last_run) if enabled else None,
-        }
+            schedules["schedules"][name] = {
+                "interval": interval,
+                "enabled": enabled,
+                "last_run": last_run,
+                "next_run": _calc_next_run(interval, last_run) if enabled else None,
+            }
 
-        _save_schedules(self.data_dir, schedules)
+            _save_schedules(self.data_dir, schedules)
         _json_resp(self, {"ok": True, **schedules["schedules"][name]})
 
     # ── API: 最近条目（仪表盘用，不含全文） ────────────────
 
     def _api_entries_recent(self):
-        content_dir = self.data_dir / "content"
-        recent = []
-        if content_dir.exists():
-            for f in content_dir.glob("*.json"):
-                try:
-                    d = json.loads(f.read_text(encoding="utf-8"))
-                except Exception:
-                    continue
-                sk = d.get("source_key", f.stem)
-                entries = d.get("entries", [])
-                if not entries and d.get("content"):
-                    entries = [{"title": d.get("title", ""), "fetched_at": ""}]
-                for e in entries:
-                    recent.append({
-                        "source_key": sk,
-                        "title": e.get("title", sk),
-                        "fetched_at": e.get("fetched_at", ""),
-                    })
-            recent.sort(key=lambda x: x["fetched_at"], reverse=True)
-            recent = recent[:5]
-        _json_resp(self, {"entries": recent})
+        index = _read_index(self.data_dir)
+        all_recent = []
+        for s in index.get("sources", []):
+            all_recent.extend(s.get("recent_entries", []))
+        all_recent.sort(key=lambda x: x.get("fetched_at", "") or "", reverse=True)
+        _json_resp(self, {"entries": all_recent[:5]})
 
     # ── API: 全部条目 ─────────────────────────────────────
 
@@ -707,7 +741,14 @@ class OttHandler(BaseHTTPRequestHandler):
                     "charCount": len(e.get("content", "")),
                 })
         all_entries.sort(key=lambda x: x["fetched_at"], reverse=True)
-        _json_resp(self, {"entries": all_entries, "total": len(all_entries)})
+        total = len(all_entries)
+        # 分页（安全阀，默认返回全部）
+        qs = dict(p.split("=") for p in urlparse(unquote(self.path)).query.split("&") if "=" in p)
+        page = max(1, int(qs.get("page", 1)))
+        limit = min(500, max(1, int(qs.get("limit", total or 500))))
+        start = (page - 1) * limit
+        paged = all_entries[start:start + limit]
+        _json_resp(self, {"entries": paged, "total": total, "page": page, "limit": limit, "pages": (total + limit - 1) // limit if limit else 1})
 
     def _api_entry_add(self):
         body = _json_body(self)
@@ -724,23 +765,37 @@ class OttHandler(BaseHTTPRequestHandler):
         content_dir.mkdir(parents=True, exist_ok=True)
         fpath = content_dir / f"{source_key}.json"
         now_iso = time.strftime("%Y-%m-%dT%H:%M:%S+08:00", time.localtime())
-        if fpath.exists():
-            try:
-                d = json.loads(fpath.read_text(encoding="utf-8"))
-            except Exception:
-                d = {}
-            entries = d.get("entries", [])
-            if not entries and d.get("content"):
-                entries = [{
-                    "title": d.get("title", ""),
-                    "content": d.get("content", ""),
-                    "metadata": d.get("metadata", {}),
-                    "fetched_at": now_iso,
-                }]
-            dup = False
-            for i, e in enumerate(entries):
-                if e.get("content") == content:
-                    entries[i] = {
+        with _get_write_lock(source_key):
+            if fpath.exists():
+                try:
+                    d = json.loads(fpath.read_text(encoding="utf-8"))
+                except Exception:
+                    d = {}
+                entries = d.get("entries", [])
+                if not entries and d.get("content"):
+                    entries = [{
+                        "title": d.get("title", ""),
+                        "content": d.get("content", ""),
+                        "metadata": d.get("metadata", {}),
+                        "fetched_at": now_iso,
+                    }]
+                dup = False
+                for i, e in enumerate(entries):
+                    if e.get("content") == content:
+                        entries[i] = {
+                            "title": title,
+                            "content": content,
+                            "metadata": {
+                                "category": body.get("category", ""),
+                                "tags": [t.strip() for t in body.get("tags", "").split(",") if t.strip()],
+                                "description": body.get("description", ""),
+                            },
+                            "fetched_at": now_iso,
+                        }
+                        dup = True
+                        break
+                if not dup:
+                    entries.append({
                         "title": title,
                         "content": content,
                         "metadata": {
@@ -749,11 +804,13 @@ class OttHandler(BaseHTTPRequestHandler):
                             "description": body.get("description", ""),
                         },
                         "fetched_at": now_iso,
-                    }
-                    dup = True
-                    break
-            if not dup:
-                entries.append({
+                    })
+                d["entries"] = entries
+                d["title"] = title
+                d["content"] = content
+            else:
+                d = {
+                    "source_key": source_key,
                     "title": title,
                     "content": content,
                     "metadata": {
@@ -761,34 +818,19 @@ class OttHandler(BaseHTTPRequestHandler):
                         "tags": [t.strip() for t in body.get("tags", "").split(",") if t.strip()],
                         "description": body.get("description", ""),
                     },
-                    "fetched_at": now_iso,
-                })
-            d["entries"] = entries
-            d["title"] = title
-            d["content"] = content
-        else:
-            d = {
-                "source_key": source_key,
-                "title": title,
-                "content": content,
-                "metadata": {
-                    "category": body.get("category", ""),
-                    "tags": [t.strip() for t in body.get("tags", "").split(",") if t.strip()],
-                    "description": body.get("description", ""),
-                },
-                "entries": [{
-                    "title": title,
-                    "content": content,
-                    "metadata": {
-                        "category": body.get("category", ""),
-                        "tags": [t.strip() for t in body.get("tags", "").split(",") if t.strip()],
-                        "description": body.get("description", ""),
-                    },
-                    "fetched_at": now_iso,
-                }],
-            }
-        fpath.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
-        rebuild_index(self.data_dir)
+                    "entries": [{
+                        "title": title,
+                        "content": content,
+                        "metadata": {
+                            "category": body.get("category", ""),
+                            "tags": [t.strip() for t in body.get("tags", "").split(",") if t.strip()],
+                            "description": body.get("description", ""),
+                        },
+                        "fetched_at": now_iso,
+                    }],
+                }
+            fpath.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        _rebuild_and_invalidate(self.data_dir)
         _update_last_run(self.data_dir, source_key)
         _json_resp(self, {"ok": True, "source_key": source_key, "fetched_at": now_iso}, 201)
 
@@ -800,35 +842,34 @@ class OttHandler(BaseHTTPRequestHandler):
             return _err(self, f"合集 '{source_key}' 不存在", 404)
         delete_all = body.get("delete_all", False) if body else False
         entry_id = body.get("entry_id") if body else None
-        d = json.loads(fpath.read_text(encoding="utf-8"))
-        entries = d.get("entries", [])
-        if delete_all or (not entry_id and not entries):
-            # 清空条目，保留文件骨架
-            d["entries"] = []
-            d["content"] = ""
-        elif entry_id and entries:
-            idx = None
-            # 按 id 匹配（格式: source_key-fetched_at）
-            prefix = f"{source_key}-"
-            eid = entry_id
-            if eid.startswith(prefix):
-                eid = eid[len(prefix):]
-            for i, e in enumerate(entries):
-                if e.get("fetched_at", "") == eid:
-                    idx = i
-                    break
-            if idx is None:
-                return _err(self, f"未找到条目: {entry_id}", 404)
-            entries.pop(idx)
-            d["entries"] = entries
-            if entries:
-                d["title"] = entries[-1].get("title", "")
-                d["content"] = entries[-1].get("content", "")
-            else:
-                d["title"] = ""
+        with _get_write_lock(source_key):
+            d = json.loads(fpath.read_text(encoding="utf-8"))
+            entries = d.get("entries", [])
+            if delete_all or (not entry_id and not entries):
+                d["entries"] = []
                 d["content"] = ""
-        fpath.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
-        rebuild_index(self.data_dir)
+            elif entry_id and entries:
+                idx = None
+                prefix = f"{source_key}-"
+                eid = entry_id
+                if eid.startswith(prefix):
+                    eid = eid[len(prefix):]
+                for i, e in enumerate(entries):
+                    if e.get("fetched_at", "") == eid:
+                        idx = i
+                        break
+                if idx is None:
+                    return _err(self, f"未找到条目: {entry_id}", 404)
+                entries.pop(idx)
+                d["entries"] = entries
+                if entries:
+                    d["title"] = entries[-1].get("title", "")
+                    d["content"] = entries[-1].get("content", "")
+                else:
+                    d["title"] = ""
+                    d["content"] = ""
+            fpath.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        _rebuild_and_invalidate(self.data_dir)
         _update_last_run(self.data_dir, source_key)
         entries_left = len(d.get("entries", []))
         _json_resp(self, {"ok": True, "entries_left": entries_left})
@@ -837,7 +878,7 @@ class OttHandler(BaseHTTPRequestHandler):
 
     def _api_refresh(self):
         try:
-            idx = rebuild_index(self.data_dir)
+            idx = _rebuild_and_invalidate(self.data_dir)
             _json_resp(self, {
                 "ok": True,
                 "sources": len(idx.get("sources", [])),
@@ -907,7 +948,7 @@ def _append_entry(d, entry):
             d["metadata"] = entry.get("metadata", {{}})
             OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
             tmp = OUTPUT_PATH.with_suffix(".tmp")
-            tmp.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+            tmp.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
             tmp.replace(OUTPUT_PATH)
             print(f"[{{SOURCE_KEY}}] 已更新（重复内容）— 共 {{len(d['entries'])}} 篇")
             return
@@ -917,7 +958,7 @@ def _append_entry(d, entry):
     d["metadata"] = entry.get("metadata", {{}})
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     tmp = OUTPUT_PATH.with_suffix(".tmp")
-    tmp.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     tmp.replace(OUTPUT_PATH)
     print(f"[{{SOURCE_KEY}}] 已追加 — 共 {{len(d['entries'])}} 篇")
 
@@ -1000,9 +1041,17 @@ def _validate_ott_json(data: dict) -> dict:
     return {"valid": True, "charCount": len(content_str), "source_key": source_key}
 
 
+class ThreadLimitedServer(ThreadingHTTPServer):
+    """线程数受限的 HTTP 服务器，使用 ThreadPoolExecutor 替代每连接一线程。"""
+    _pool = ThreadPoolExecutor(max_workers=8)
+
+    def process_request(self, request, client_address):
+        self._pool.submit(self.process_request_thread, request, client_address)
+
+
 def start_server(port, data_dir):
     OttHandler.data_dir = Path(data_dir)
-    server = ThreadingHTTPServer(("127.0.0.1", port), OttHandler)
+    server = ThreadLimitedServer(("127.0.0.1", port), OttHandler)
     print(f" OTT 适配器 v2 已启动")
     print(f"   地址: http://127.0.0.1:{port}")
     print(f"   数据: {data_dir}")
@@ -1242,6 +1291,7 @@ td .tag-green{background:rgba(82,196,26,0.12);color:var(--green)}
 .btn-danger:hover{background:#e84748;box-shadow:0 4px 14px rgba(255,77,79,0.25)}
 .btn-sm{padding:4px 11px;font-size:12px;border-radius:5px}
 .btn-xs{padding:2px 8px;font-size:11px;border-radius:4px}
+.btn-active{background:var(--gold);color:var(--bg);font-weight:600}
 .btn:disabled{opacity:0.35;cursor:not-allowed;transform:none!important}
 
 /* ═══ 表单 ═══ */
@@ -1506,14 +1556,15 @@ td .tag-green{background:rgba(82,196,26,0.12);color:var(--green)}
 <div class="page" id="page-library">
   <div class="page-header"><h2>文库</h2><p>全部历史文本</p></div>
   <div class="toolbar">
-    <input type="text" id="lib-search" placeholder="搜索标题、正文..." oninput="renderLibrary()">
-    <select id="lib-source" onchange="renderLibrary()"><option value="">全部合集</option></select>
-    <select id="lib-cat" onchange="renderLibrary()"><option value="">全部分类</option></select>
+    <input type="text" id="lib-search" placeholder="搜索标题、正文..." oninput="state.libraryPage=1;renderLibrary()">
+    <select id="lib-source" onchange="state.libraryPage=1;renderLibrary()"><option value="">全部合集</option></select>
+    <select id="lib-cat" onchange="state.libraryPage=1;renderLibrary()"><option value="">全部分类</option></select>
     <span id="lib-count" style="font-size:12px;color:var(--text-muted);white-space:nowrap"></span>
-    <button class="btn btn-ghost btn-sm" onclick="renderLibrary()">&#8635;</button>
+    <button class="btn btn-ghost btn-sm" onclick="state.libraryPage=1;fetchAndRenderLibrary()">&#8635;</button>
     <button class="btn btn-gold btn-sm" onclick="openLibAddModal()">&#43; 添加</button>
   </div>
   <div id="lib-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  <div id="lib-pagination"></div>
   <div id="lib-empty" class="empty" style="display:none">
     <div class="ico">&#9744;</div><p>暂无文本。<a href="#" onclick="openLibAddModal();return false">添加一篇</a> 或创建抓取脚本</p>
   </div>
@@ -1676,7 +1727,7 @@ td .tag-green{background:rgba(82,196,26,0.12);color:var(--green)}
    核心 SPA
    ════════════════════════════════════════════════════════════ */
 
-let state = { status: null, sources: [], scripts: [], categories: [], entries: [] };
+let state = { status: null, sources: [], scripts: [], categories: [], entries: [], libraryPage: 1, libraryLimit: 40, libraryTotal: 0, libraryPages: 0, currentDetailEntry: null };
 let currentScript = null;
 let currentDetailKey = null;
 function navigate(page) {
@@ -1813,8 +1864,10 @@ function renderDashSysInfo(status) {
 async function fetchAndRenderLibrary() {
   document.getElementById('lib-list').innerHTML = '<div class="card" style="padding:20px;text-align:center;color:var(--text-muted)"><div class="spinner"></div>加载中...</div>';
   try {
-    const data = await api('GET', '/api/entries');
+    const data = await api('GET', '/api/entries?limit=500');
     state.entries = data.entries || [];
+    state.libraryTotal = data.total || 0;
+    state.libraryPages = data.pages || 1;
     const srcs = [...new Set(state.entries.map(e=>e.source_key))];
     const cats = [...new Set(state.entries.map(e=>e.category).filter(Boolean))];
     const sSel = document.getElementById('lib-source'), sCur = sSel.value;
@@ -1824,8 +1877,8 @@ async function fetchAndRenderLibrary() {
     cSel.innerHTML = '<option value="">全部分类</option>'+cats.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
     if (cats.includes(cCur)) cSel.value = cCur;
     renderLibrary();
-    document.getElementById('lib-badge').textContent = state.entries.length;
-    document.getElementById('lib-count').textContent = '共 '+state.entries.length+' 篇';
+    document.getElementById('lib-badge').textContent = state.libraryTotal;
+    document.getElementById('lib-count').textContent = '共 '+state.libraryTotal+' 篇';
   } catch(e) {
     document.getElementById('lib-list').innerHTML = '<div class="card" style="padding:20px;text-align:center;color:var(--red)">加载失败: '+e.message+'</div>';
   }
@@ -1843,8 +1896,13 @@ function renderLibrary() {
   const empty = document.getElementById('lib-empty');
   if (!filtered.length) { list.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
-  list.innerHTML = filtered.map((e,i) =>
-    '<div class="card entry-card" onclick="openDetail('+i+')" style="cursor:pointer;padding:14px 18px">' +
+  const totalFiltered = filtered.length;
+  const pages = Math.ceil(totalFiltered / state.libraryLimit);
+  if (state.libraryPage > pages) state.libraryPage = Math.max(1, pages);
+  const start = (state.libraryPage - 1) * state.libraryLimit;
+  const pageItems = filtered.slice(start, start + state.libraryLimit);
+  list.innerHTML = pageItems.map((e,i) =>
+    '<div class="card entry-card" onclick="openDetail(\''+e.id+'\')" style="cursor:pointer;padding:14px 18px">' +
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
         '<span style="font-size:11px;font-weight:600;color:var(--gold);background:var(--gold-dim);padding:2px 8px;border-radius:4px">'+escHtml(e.source_key)+'</span>' +
         (e.category?'<span class="tag">'+escHtml(e.category)+'</span>':'') +
@@ -1855,6 +1913,33 @@ function renderLibrary() {
       (e.tags&&e.tags.length?'<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">'+e.tags.map(t=>'<span style="font-size:10px;color:var(--text-muted);background:var(--bg-elevated);padding:1px 6px;border-radius:3px">'+escHtml(t)+'</span>').join('')+'</div>':'') +
     '</div>'
   ).join('');
+  renderPagination(state.libraryPage, pages);
+}
+
+function changePage(delta) {
+  const q = (document.getElementById('lib-search').value||'').toLowerCase();
+  const src = document.getElementById('lib-source').value;
+  const cat = document.getElementById('lib-cat').value;
+  let filtered = state.entries;
+  if (q) filtered = filtered.filter(e => (e.title||'').toLowerCase().includes(q)||(e.content||'').toLowerCase().includes(q));
+  if (src) filtered = filtered.filter(e => e.source_key === src);
+  if (cat) filtered = filtered.filter(e => e.category === cat);
+  const pages = Math.ceil(filtered.length / state.libraryLimit) || 1;
+  state.libraryPage = Math.max(1, Math.min(state.libraryPage + delta, pages));
+  renderLibrary();
+}
+
+function renderPagination(cur, total) {
+  const el = document.getElementById('lib-pagination');
+  if (total <= 1) { el.innerHTML = ''; return; }
+  let h = '<div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 0;flex-wrap:wrap">';
+  h += '<button class="btn btn-xs" onclick="changePage(-1)"'+(cur<=1?' disabled':'')+'>&#9664;</button>';
+  const r = 2, s = Math.max(1, cur - r), e = Math.min(total, cur + r);
+  if (s > 1) h += '<button class="btn btn-xs" onclick="changePage('+(1-cur)+')">1</button>' + (s>2?'<span style="color:var(--text-muted);font-size:12px">..</span>':'');
+  for (let i = s; i <= e; i++) h += '<button class="btn btn-xs'+(i===cur?' btn-active':'')+'" onclick="changePage('+(i-cur)+')">'+i+'</button>';
+  if (e < total) h += (e<total-1?'<span style="color:var(--text-muted);font-size:12px">..</span>':'') + '<button class="btn btn-xs" onclick="changePage('+(total-cur)+')">'+total+'</button>';
+  h += '<button class="btn btn-xs" onclick="changePage(1)"'+(cur>=total?' disabled':'')+'>&#9654;</button></div>';
+  el.innerHTML = h;
 }
 
 function openLibAddModal() {
@@ -1885,8 +1970,8 @@ async function libAddEntry() {
   } catch(e) { toast('添加失败: '+e.message, 'red'); }
 }
 
-async function deleteEntry(idx) {
-  const e = state.entries[idx];
+async function deleteEntry() {
+  const e = state.currentDetailEntry;
   if (!e || !confirm('确认删除 "'+(e.title||e.source_key)+'" ？')) return;
   try {
     await api('DELETE', '/api/entries/'+e.source_key, {entry_id: e.id});
@@ -1914,9 +1999,10 @@ function navigateToScript(key) {
    详情
    ════════════════════════════════════════════════════════════ */
 
-function openDetail(idx) {
-  const e = state.entries[idx];
+function openDetail(id) {
+  const e = state.entries.find(e => e.id === id);
   if (!e) return;
+  state.currentDetailEntry = e;
   const ov = document.getElementById('modal-detail');
   ov.classList.add('open');
   document.getElementById('det-title').textContent = e.title || e.source_key;
@@ -1929,7 +2015,7 @@ function openDetail(idx) {
   document.getElementById('det-content').textContent = e.content || '(空)';
   document.getElementById('det-actions').innerHTML =
     '<button class="btn btn-outline btn-sm" onclick="copyText(document.getElementById(\'det-content\').textContent)">复制文本</button>' +
-    '<button class="btn btn-ghost btn-sm" onclick="deleteEntry('+idx+')" style="color:var(--red)">删除</button>';
+    '<button class="btn btn-ghost btn-sm" onclick="deleteEntry()" style="color:var(--red)">删除</button>';
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -2154,7 +2240,7 @@ def _append_entry(d, entry):
             d["metadata"] = entry.get("metadata", {})
             OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
             tmp = OUTPUT_PATH.with_suffix(".tmp")
-            tmp.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+            tmp.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
             tmp.replace(OUTPUT_PATH)
             print(f"[{SOURCE_KEY}] 已更新（重复内容）— 共 {len(d['entries'])} 篇")
             return
@@ -2164,7 +2250,7 @@ def _append_entry(d, entry):
     d["metadata"] = entry.get("metadata", {})
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     tmp = OUTPUT_PATH.with_suffix(".tmp")
-    tmp.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     tmp.replace(OUTPUT_PATH)
     print(f"[{SOURCE_KEY}] 已追加 — 共 {len(d['entries'])} 篇")
 
