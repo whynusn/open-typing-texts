@@ -72,7 +72,7 @@ def build_index(data_dir):
                 "entry_preview": ((content or "")[:120]).replace("\n", " ").strip(),
                 "recent_entries": _recent_from_entries(entries, d),
             })
-    return {"version": 1,
+    return {"version": 2,
             "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime()),
             "sources": sources}
 

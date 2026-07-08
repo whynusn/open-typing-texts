@@ -6,12 +6,10 @@
 
 import json
 import re
-import shutil
 import subprocess
 import sys
 import threading
 import time
-import uuid
 from concurrent.futures import ThreadPoolExecutor
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
@@ -96,7 +94,7 @@ def _rebuild_and_invalidate(data_dir):
     """调用 rebuild_index 并使 index cache 失效。"""
     result = rebuild_index(data_dir)
     _cache_invalidate(str(data_dir / "registry_index.json"))
-    return result
+    return result if result is not None else _read_index(data_dir)
 
 
 def _get_schedules(data_dir) -> dict:
@@ -116,12 +114,11 @@ def _get_schedules(data_dir) -> dict:
 
 
 def _save_schedules(data_dir, schedules):
-    with _schedule_lock:
-        p = data_dir / SCHEDULES_FILE
-        tmp = p.with_suffix(".tmp")
-        tmp.write_text(json.dumps(schedules, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-        tmp.replace(p)
-        _cache_invalidate(str(p))
+    p = data_dir / SCHEDULES_FILE
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(schedules, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    tmp.replace(p)
+    _cache_invalidate(str(p))
 
 
 def _update_last_run(data_dir, name):
@@ -151,7 +148,7 @@ def _read_index(data_dir) -> dict:
             return d
         except (json.JSONDecodeError, OSError):
             pass
-    return {"version": 1, "updated_at": "", "sources": []}
+    return {"version": 2, "updated_at": "", "sources": []}
 
 
 # ── HTTP Handler ────────────────────────────────────────────
@@ -829,19 +826,23 @@ class OttHandler(BaseHTTPRequestHandler):
                         "fetched_at": now_iso,
                     }],
                 }
-            fpath.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            tmp = fpath.with_suffix(".tmp")
+            tmp.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            tmp.replace(fpath)
         _rebuild_and_invalidate(self.data_dir)
         _update_last_run(self.data_dir, source_key)
         _json_resp(self, {"ok": True, "source_key": source_key, "fetched_at": now_iso}, 201)
 
     def _api_entry_delete(self, source_key):
         body = _json_body(self)
+        if body is None:
+            return _err(self, "无效的 JSON 请求体")
         content_dir = self.data_dir / "content"
         fpath = content_dir / f"{source_key}.json"
         if not fpath.exists():
             return _err(self, f"合集 '{source_key}' 不存在", 404)
-        delete_all = body.get("delete_all", False) if body else False
-        entry_id = body.get("entry_id") if body else None
+        delete_all = body.get("delete_all", False)
+        entry_id = body.get("entry_id")
         with _get_write_lock(source_key):
             d = json.loads(fpath.read_text(encoding="utf-8"))
             entries = d.get("entries", [])
@@ -868,7 +869,9 @@ class OttHandler(BaseHTTPRequestHandler):
                 else:
                     d["title"] = ""
                     d["content"] = ""
-            fpath.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            tmp = fpath.with_suffix(".tmp")
+            tmp.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            tmp.replace(fpath)
         _rebuild_and_invalidate(self.data_dir)
         _update_last_run(self.data_dir, source_key)
         entries_left = len(d.get("entries", []))
@@ -1291,7 +1294,7 @@ td .tag-green{background:rgba(82,196,26,0.12);color:var(--green)}
 .btn-danger:hover{background:#e84748;box-shadow:0 4px 14px rgba(255,77,79,0.25)}
 .btn-sm{padding:4px 11px;font-size:12px;border-radius:5px}
 .btn-xs{padding:2px 8px;font-size:11px;border-radius:4px}
-.btn-active{background:var(--gold);color:var(--bg);font-weight:600}
+.btn-active{background:var(--gold);color:var(--bg-canvas);font-weight:600}
 .btn:disabled{opacity:0.35;cursor:not-allowed;transform:none!important}
 
 /* ═══ 表单 ═══ */
@@ -1807,7 +1810,7 @@ function renderDashStats(status, srcData) {
     else uptimeStr = Math.floor(u/86400) + '天 ' + Math.floor((u%86400)/3600) + '时';
   }
   document.getElementById('dash-stats').innerHTML =
-    '<div class="stat gold"><div class="val">'+(status.stats.entries||srcs.length)+'</div><div class="lbl">文本篇数</div></div>' +
+    '<div class="stat gold"><div class="val">'+(status.stats.entries??srcs.length)+'</div><div class="lbl">文本篇数</div></div>' +
     '<div class="stat blue"><div class="val">'+status.stats.scripts+'</div><div class="lbl">抓取脚本</div></div>' +
     '<div class="stat purple"><div class="val">'+cats.size+'</div><div class="lbl">分类数</div></div>' +
     '<div class="stat orange"><div class="val">'+status.stats.active_schedules+'</div><div class="lbl">定时任务</div></div>';
