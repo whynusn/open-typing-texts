@@ -31,6 +31,20 @@ def run_script(script_path, timeout=60):
         return False, str(e)
 
 
+def _recent_from_entries(entries: list, d: dict) -> list:
+    """从 entries 中提取最近 10 条摘要（title + fetched_at），用于索引缓存。"""
+    if not entries and d.get("content"):
+        return [{"title": d.get("title", ""), "fetched_at": "", "source_key": d.get("source_key", "")}]
+    result = []
+    for e in entries[-10:]:
+        result.append({
+            "title": e.get("title", ""),
+            "fetched_at": e.get("fetched_at", ""),
+            "source_key": d.get("source_key", ""),
+        })
+    return result
+
+
 def build_index(data_dir):
     """扫描 content/ 目录构建索引。"""
     content_dir = data_dir / "content"
@@ -54,6 +68,9 @@ def build_index(data_dir):
                 "entries_count": len(entries),
                 "category": d.get("metadata", {}).get("category", "static"),
                 "update_freq": "daily" if "daily" in key else "static",
+                "title_preview": (d.get("title", "") or "")[:120],
+                "entry_preview": ((content or "")[:120]).replace("\n", " ").strip(),
+                "recent_entries": _recent_from_entries(entries, d),
             })
     return {"version": 1,
             "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime()),
@@ -79,16 +96,24 @@ def run_all_fetches(data_dir, force=False):
     return ok
 
 
+_rebuild_lock = threading.Lock()
+
+
 def rebuild_index(data_dir):
-    """重建索引文件（原子写）。"""
-    index = build_index(data_dir)
-    p = data_dir / "registry_index.json"
-    data_dir.mkdir(parents=True, exist_ok=True)
-    (data_dir / "content").mkdir(exist_ok=True)
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(p)
-    return index
+    """重建索引文件（原子写）。重入安全：同时调用仅第一次执行。"""
+    if not _rebuild_lock.acquire(blocking=False):
+        return None
+    try:
+        index = build_index(data_dir)
+        p = data_dir / "registry_index.json"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        (data_dir / "content").mkdir(exist_ok=True)
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        tmp.replace(p)
+        return index
+    finally:
+        _rebuild_lock.release()
 
 
 # ── 热更新 ──────────────────────────────────────────────────────────
@@ -203,7 +228,7 @@ def _save_schedules(data_dir, schedules):
     """原子写入 schedules.json。"""
     p = data_dir / SCHEDULES_FILE
     tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(schedules, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.write_text(json.dumps(schedules, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     tmp.replace(p)
 
 
