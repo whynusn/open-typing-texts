@@ -7,6 +7,8 @@ import threading
 import time
 from pathlib import Path
 
+from .ott_core import entries_from_content_file, entry_summary
+
 try:
     from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
@@ -45,6 +47,17 @@ def _recent_from_entries(entries: list, d: dict) -> list:
     return result
 
 
+def _recent_from_ott_entries(entries: list[dict]) -> list[dict]:
+    return [
+        {
+            "title": entry.get("title", ""),
+            "fetched_at": entry.get("fetched_at", ""),
+            "source_key": entry.get("source_key", ""),
+        }
+        for entry in entries[-10:]
+    ]
+
+
 def build_index(data_dir):
     """扫描 content/ 目录构建索引。"""
     content_dir = data_dir / "content"
@@ -59,18 +72,28 @@ def build_index(data_dir):
             content = d.get("content", "")
             if not isinstance(content, str):
                 content = ""
-            entries = d.get("entries", [])
+            ott_entries = [
+                entry_summary(entry)
+                for entry in entries_from_content_file(f, include_content=False)
+            ]
+            char_count = sum(int(e.get("char_count", 0) or 0) for e in ott_entries)
+            entry_preview = ""
+            if ott_entries:
+                entry_preview = str(ott_entries[-1].get("preview", "") or "")
+            elif content:
+                entry_preview = content[:120].replace("\n", " ").strip()
             sources.append({
                 "source_key": key,
                 "label": d.get("title", key),
                 "description": d.get("metadata", {}).get("description", ""),
-                "charCount": len(content),
-                "entries_count": len(entries),
+                "charCount": char_count,
+                "entries_count": len(ott_entries),
                 "category": d.get("metadata", {}).get("category", "static"),
                 "update_freq": "daily" if "daily" in key else "static",
                 "title_preview": (d.get("title", "") or "")[:120],
-                "entry_preview": ((content or "")[:120]).replace("\n", " ").strip(),
-                "recent_entries": _recent_from_entries(entries, d),
+                "entry_preview": entry_preview,
+                "recent_entries": _recent_from_ott_entries(ott_entries),
+                "ott_entries": ott_entries,
             })
     return {"version": 2,
             "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime()),
