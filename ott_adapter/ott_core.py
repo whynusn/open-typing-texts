@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import time
 from pathlib import Path
 
@@ -133,6 +134,68 @@ def entry_detail(entry: dict, include_content: bool = True) -> dict:
     return detail
 
 
+def build_static_profile(data_dir: Path, index: dict, adapter_version: str = "") -> None:
+    """Generate the OTT Static Profile files beside registry_index.json."""
+    all_entries = _entries_from_content_dir(data_dir)
+    summaries = [entry_summary(entry) for entry in all_entries]
+    sources = []
+    for source in index.get("sources", []):
+        if not isinstance(source, dict) or not source.get("source_key"):
+            continue
+        sources.append(
+            {
+                "source_key": str(source.get("source_key", "")),
+                "label": str(source.get("label") or source.get("source_key") or ""),
+                "description": str(source.get("description", "") or ""),
+                "tags": [str(source.get("category", ""))]
+                if source.get("category")
+                else [],
+                "rights_summary": "user-provided",
+                "category": str(source.get("category", "") or ""),
+                "entry_count": int(source.get("entries_count", 0) or 0),
+                "char_count": int(source.get("charCount", 0) or 0),
+                "updated_at": str(index.get("updated_at", "") or ""),
+            }
+        )
+
+    _write_json(
+        data_dir / "ott.json",
+        {
+            "protocol": "ott",
+            "version": "1.0",
+            "profiles": ["static"],
+            "adapter_version": adapter_version,
+            "updated_at": str(index.get("updated_at", "") or ""),
+            "features": {
+                "entry_summary": True,
+                "inline_content": True,
+                "segmented_content": True,
+                "search": False,
+                "static_fallback": True,
+            },
+        },
+    )
+    _write_json(data_dir / "sources.json", {"sources": sources, "total": len(sources)})
+    _write_json(
+        data_dir / "entries.json",
+        {
+            "entries": summaries,
+            "total": len(summaries),
+            "updated_at": index.get("updated_at", ""),
+        },
+    )
+
+    entries_dir = data_dir / "entries"
+    segments_dir = data_dir / "segments"
+    _replace_generated_dir(entries_dir)
+    _replace_generated_dir(segments_dir)
+
+    for entry in all_entries:
+        _write_json(entries_dir / f"{entry['entry_id']}.json", entry_detail(entry))
+        if entry.get("content_mode") == "segmented":
+            _write_segments(segments_dir, entry)
+
+
 def _raw_entries(data: dict, top_meta: dict, path: Path) -> list[dict]:
     entries = data.get("entries", [])
     if isinstance(entries, list) and entries:
@@ -160,5 +223,48 @@ def _entry_base_id(source_key: str, entry: dict, content: str) -> str:
     if valid_identifier(explicit):
         return explicit
     title = str(entry.get("title") or "").strip()
-    identity = f"{source_key}\0{title}" if title else f"{source_key}\0{sha256_text(content)}"
+    identity = (
+        f"{source_key}\0{title}" if title else f"{source_key}\0{sha256_text(content)}"
+    )
     return "ent_" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24]
+
+
+def _entries_from_content_dir(data_dir: Path) -> list[dict]:
+    content_dir = data_dir / "content"
+    entries: list[dict] = []
+    if content_dir.exists():
+        for path in sorted(content_dir.glob("*.json")):
+            entries.extend(entries_from_content_file(path, include_content=True))
+    entries.sort(key=lambda item: item.get("fetched_at", "") or "", reverse=True)
+    return entries
+
+
+def _replace_generated_dir(path: Path) -> None:
+    if path.exists():
+        shutil.rmtree(path)
+    path.mkdir(parents=True, exist_ok=True)
+
+
+def _write_json(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(f"{path.suffix}.tmp")
+    tmp_path.write_text(
+        json.dumps(data, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    tmp_path.replace(path)
+
+
+def _write_segments(segments_dir: Path, entry: dict) -> None:
+    content = str(entry.get("content", "") or "")
+    revision_id = str(entry.get("current_revision_id", "") or "")
+    segment_size = int(
+        entry.get("segment_size_hint", DEFAULT_SEGMENT_SIZE) or DEFAULT_SEGMENT_SIZE
+    )
+    revision_dir = segments_dir / revision_id
+    revision_dir.mkdir(parents=True, exist_ok=True)
+    total = int(entry.get("segment_count", 0) or 0)
+    for index in range(1, total + 1):
+        start = (index - 1) * segment_size
+        end = min(len(content), start + segment_size)
+        (revision_dir / f"{index}.txt").write_text(content[start:end], encoding="utf-8")

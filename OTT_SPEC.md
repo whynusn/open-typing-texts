@@ -7,6 +7,19 @@ delivery. Fetch scripts, local storage engines, admin APIs, and Web UI behavior
 are reference implementation concerns; clients such as typetype should depend
 only on this read-only protocol.
 
+## Version Vocabulary
+
+| Name | Current | Meaning |
+|:---|:---|:---|
+| OTT Core | `1.0` | Data model and client-facing distribution contract |
+| Service Profile path | `/ott/v1` | HTTP routing namespace for Core v1 |
+| Adapter package | `0.5.0` | Reference implementation release version |
+| Legacy index | `registry_index.json` `version: 2` | Historical adapter index schema, not the OTT Core version |
+
+There is no public "OTT v2" protocol in this repository. Old adapter UI/API
+text that used "v2" referred to the local adapter implementation generation,
+not the OTT Core protocol.
+
 ## Profiles
 
 | Profile | Purpose |
@@ -131,9 +144,15 @@ GET /ott/v1/entries/{entry_id}/revisions/{revision_id}/segments/{index}
 ```text
 /ott.json
 /sources.json
+/entries.json
 /entries/{entry_id}.json
 /segments/{revision_id}/{index}.txt
 ```
+
+`/entries.json` is the static discovery manifest containing `EntrySummary`
+objects. `/entries/{entry_id}.json` returns one `EntryDetail`. For segmented
+entries, the detail omits full content and clients read segment text from
+`/segments/{revision_id}/{index}.txt`.
 
 ## Identity Rules
 

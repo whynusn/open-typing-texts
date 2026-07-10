@@ -12,6 +12,12 @@ pip-wheel-metadata/
 
 # OTT generated content
 content/
+registry_index.json
+ott.json
+sources.json
+entries.json
+entries/
+segments/
 
 # IDE
 .vscode/
@@ -22,8 +28,6 @@ content/
 # OS
 .DS_Store
 Thumbs.db
-registry_index.json
-content/
 
 # Tooling
 .omo/

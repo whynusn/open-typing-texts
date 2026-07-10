@@ -7,7 +7,8 @@ import threading
 import time
 from pathlib import Path
 
-from .ott_core import entries_from_content_file, entry_summary
+from . import __version__
+from .ott_core import build_static_profile, entries_from_content_file, entry_summary
 
 try:
     from watchdog.observers import Observer
@@ -134,6 +135,7 @@ def rebuild_index(data_dir):
         tmp = p.with_suffix(".tmp")
         tmp.write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         tmp.replace(p)
+        build_static_profile(data_dir, index, adapter_version=__version__)
         return index
     finally:
         _rebuild_lock.release()

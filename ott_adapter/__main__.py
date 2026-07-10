@@ -22,7 +22,10 @@ from .scheduler import (
 
 
 def main():
-    p = argparse.ArgumentParser(prog="ott-adapter", description="OTT 本地适配器 v2")
+    p = argparse.ArgumentParser(
+        prog="ott-adapter",
+        description="OTT 本地适配器（实现 OTT Core v1，只读协议 /ott/v1）",
+    )
     p.add_argument("--port", type=int, default=18888)
     p.add_argument("--data-dir", type=Path, default=Path("."))
     p.add_argument("--fetch", action="store_true",

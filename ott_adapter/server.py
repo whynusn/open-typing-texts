@@ -1,6 +1,6 @@
-"""OTT 适配器 HTTP 服务 + Web UI — 全新 v2 设计。
+"""OTT adapter HTTP service + Web UI.
 
-提供 RESTful API + 嵌入式 SPA 前端。
+提供 OTT Core v1 只读协议、legacy adapter API 与嵌入式 SPA 前端。
 零外部依赖，仅用 Python stdlib。
 """
 
@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
+from . import __version__
 from .scheduler import run_script, rebuild_index
 from .ott_core import (
     DEFAULT_SEGMENT_SIZE,
@@ -263,7 +264,7 @@ class OttHandler(BaseHTTPRequestHandler):
         if m and method == "GET":
             return self._ott_segment(m.group(1), m.group(2), int(m.group(3)))
 
-        # ── API v2 ──────────────────────────────────────
+        # ── Legacy adapter-private API ───────────────────
         if method == "GET" and path == "/api/status":
             return self._api_status()
 
@@ -334,6 +335,27 @@ class OttHandler(BaseHTTPRequestHandler):
             if path == "/registry_index.json":
                 return self._serve_file(self.data_dir / "registry_index.json")
 
+            if path == "/ott.json":
+                return self._serve_file(self.data_dir / "ott.json")
+
+            if path == "/sources.json":
+                return self._serve_file(self.data_dir / "sources.json")
+
+            if path == "/entries.json":
+                return self._serve_file(self.data_dir / "entries.json")
+
+            m = re.match(r"^/entries/([a-zA-Z0-9_]+)\.json$", path)
+            if m:
+                return self._serve_file(
+                    self.data_dir / "entries" / f"{m.group(1)}.json"
+                )
+
+            m = re.match(r"^/segments/([a-zA-Z0-9_]+)/(\d+)\.txt$", path)
+            if m:
+                return self._serve_file(
+                    self.data_dir / "segments" / m.group(1) / f"{m.group(2)}.txt"
+                )
+
             m = re.match(r"^/content/([a-zA-Z0-9_]+)\.json$", path)
             if m:
                 return self._serve_file(
@@ -355,7 +377,12 @@ class OttHandler(BaseHTTPRequestHandler):
         body = path.read_bytes()
         self.send_response(200)
         self._cors_headers()
-        ctype = "application/json; charset=utf-8" if path.suffix == ".json" else "application/octet-stream"
+        if path.suffix == ".json":
+            ctype = "application/json; charset=utf-8"
+        elif path.suffix == ".txt":
+            ctype = "text/plain; charset=utf-8"
+        else:
+            ctype = "application/octet-stream"
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-cache")
@@ -372,6 +399,7 @@ class OttHandler(BaseHTTPRequestHandler):
             "protocol": "ott",
             "version": "1.0",
             "profiles": ["service"],
+            "adapter_version": __version__,
             "features": {
                 "entry_summary": True,
                 "inline_content": True,
@@ -491,6 +519,8 @@ class OttHandler(BaseHTTPRequestHandler):
 
         _json_resp(self, {
             "version": 2,
+            "adapter_version": __version__,
+            "ott_core_version": "1.0",
             "uptime": int(now - self._start_time),
             "started_at": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(self._start_time + 8 * 3600)) + "+08:00",
             "now_iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now)),
@@ -1243,7 +1273,7 @@ class ThreadLimitedServer(ThreadingHTTPServer):
 def start_server(port, data_dir):
     OttHandler.data_dir = Path(data_dir)
     server = ThreadLimitedServer(("127.0.0.1", port), OttHandler)
-    print(f" OTT 适配器 v2 已启动")
+    print(f" OTT 适配器 {__version__} 已启动（OTT Core v1）")
     print(f"   地址: http://127.0.0.1:{port}")
     print(f"   数据: {data_dir}")
     print(f" Ctrl+C 停止")
@@ -2044,7 +2074,7 @@ function renderDashSysInfo(status) {
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' +
     '<span style="color:var(--text-muted)">运行时长</span><span>'+uptimeStr+'</span>' +
     '<span style="color:var(--text-muted)">启动时间</span><span>'+(s.started_at||'?')+'</span>' +
-    '<span style="color:var(--text-muted)">API 版本</span><span>v'+(s.version||2)+'</span>' +
+    '<span style="color:var(--text-muted)">OTT Core</span><span>v'+(s.ott_core_version||'1.0')+'</span>' +
     '<span style="color:var(--text-muted)">数据目录</span><span style="font-family:var(--font-mono);font-size:11px;word-break:break-all">'+(s.data_dir||'?')+'</span></div>';
 }
 
@@ -2558,7 +2588,8 @@ async function fetchAndRenderSettings() {
       else uptimeStr = Math.floor(u/86400) + ' 天 ' + Math.floor((u%86400)/3600) + ' 时';
     }
     document.getElementById('settings-body').innerHTML =
-      '<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--text-muted)">API 版本</div><div style="font-weight:600">v'+s.version+'</div></div>' +
+      '<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--text-muted)">OTT Core</div><div style="font-weight:600">v'+(s.ott_core_version||'1.0')+'</div></div>' +
+      '<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--text-muted)">适配器版本</div><div style="font-weight:600">'+(s.adapter_version||'?')+'</div></div>' +
       '<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--text-muted)">运行时长</div><div style="font-weight:600">'+uptimeStr+'</div></div>' +
       '<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--text-muted)">启动时间</div><div>'+(s.started_at||'?')+'</div></div>' +
       '<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--text-muted)">数据目录</div><div style="font-family:var(--font-mono);font-size:12px;word-break:break-all">'+(s.data_dir||'?')+'</div></div>' +
