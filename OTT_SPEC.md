@@ -27,9 +27,10 @@ not the OTT Core protocol.
 | Core v1 | Shared data model: source, entry summary, entry detail, segment |
 | Service Profile | Read-only HTTP API under `/ott/v1` |
 | Static Profile | Static files that expose the same model without a server process |
+| Admin Profile | Optional reference-adapter management API under `/ott-admin/v1` |
 
-Existing `/api/*` endpoints are adapter-private / legacy endpoints. They are
-not the long-term client protocol.
+Existing `/api/*` endpoints are adapter-private / legacy aliases. They are not
+the long-term client protocol and should not be used by typing clients.
 
 ## Core Objects
 
@@ -168,3 +169,33 @@ possible. `revision_id` changes when the content hash changes.
 Entry summary lists are discovery data. Service implementations should serve
 them from an index or manifest and avoid returning or building responses from
 full text bodies on every list request.
+
+## Admin Profile
+
+The Admin Profile is optional and belongs to the adapter reference
+implementation, not OTT Core. It may create sources, run fetch scripts, rebuild
+indexes, manage schedules, and serve the embedded Web UI.
+
+```http
+GET /ott-admin/v1/status
+GET /ott-admin/v1/sources
+POST /ott-admin/v1/sources
+DELETE /ott-admin/v1/sources/{source_key}
+GET /ott-admin/v1/scripts
+GET /ott-admin/v1/scripts/{source_key}
+POST /ott-admin/v1/scripts
+POST /ott-admin/v1/scripts/{source_key}/test
+POST /ott-admin/v1/scripts/{source_key}/run
+POST /ott-admin/v1/scripts/{source_key}/save
+POST /ott-admin/v1/scripts/{source_key}/rename
+GET /ott-admin/v1/scripts/{source_key}/cron
+POST /ott-admin/v1/scripts/{source_key}/cron
+GET /ott-admin/v1/entries
+GET /ott-admin/v1/entries/recent
+POST /ott-admin/v1/entries
+DELETE /ott-admin/v1/entries/{source_key}
+POST /ott-admin/v1/refresh
+```
+
+The adapter keeps legacy `/api/*` aliases for compatibility, but new Web UI and
+tooling code should call `/ott-admin/v1/*`.

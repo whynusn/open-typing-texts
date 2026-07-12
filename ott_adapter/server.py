@@ -264,70 +264,16 @@ class OttHandler(BaseHTTPRequestHandler):
         if m and method == "GET":
             return self._ott_segment(m.group(1), m.group(2), int(m.group(3)))
 
-        # ── Legacy adapter-private API ───────────────────
-        if method == "GET" and path == "/api/status":
-            return self._api_status()
+        # ── Optional Admin Profile + legacy /api alias ───────
+        admin_path = None
+        if path.startswith("/ott-admin/v1/"):
+            admin_path = "/api" + path.removeprefix("/ott-admin/v1")
+        elif path == "/api" or path.startswith("/api/"):
+            admin_path = path
+        if admin_path and self._route_admin(method, admin_path):
+            return
 
-        if method == "GET" and path == "/api/sources":
-            return self._api_list_sources()
-
-        if method == "POST" and path == "/api/sources":
-            return self._api_create_source()
-
-        if method == "DELETE" and re.match(r"^/api/sources/[a-zA-Z0-9_]+$", path):
-            return self._api_delete_source(path.split("/")[-1])
-
-        if method == "GET" and path == "/api/scripts":
-            return self._api_list_scripts()
-
-        m = re.match(r"^/api/scripts/([a-zA-Z0-9_]+)$", path)
-        if m and method == "GET":
-            return self._api_script_detail(m.group(1))
-
-        m = re.match(r"^/api/scripts/([a-zA-Z0-9_]+)/test$", path)
-        if m and method == "POST":
-            return self._api_script_test(m.group(1))
-
-        m = re.match(r"^/api/scripts/([a-zA-Z0-9_]+)/run$", path)
-        if m and method == "POST":
-            return self._api_script_run(m.group(1))
-
-        if method == "POST" and path == "/api/scripts":
-            return self._api_create_script()
-
-        m = re.match(r"^/api/scripts/([a-zA-Z0-9_]+)/save$", path)
-        if m and method == "POST":
-            return self._api_script_save(m.group(1))
-
-        m = re.match(r"^/api/scripts/([a-zA-Z0-9_]+)/rename$", path)
-        if m and method == "POST":
-            return self._api_script_rename(m.group(1))
-
-        m = re.match(r"^/api/scripts/([a-zA-Z0-9_]+)/cron$", path)
-        if m:
-            name = m.group(1)
-            if method == "GET":
-                return self._api_script_cron_get(name)
-            if method == "POST":
-                return self._api_script_cron_set(name)
-
-        if method == "GET" and path == "/api/entries/recent":
-            return self._api_entries_recent()
-
-        if method == "GET" and path == "/api/entries":
-            return self._api_entries()
-
-        if method == "POST" and path == "/api/entries":
-            return self._api_entry_add()
-
-        m = re.match(r"^/api/entries/([a-zA-Z0-9_]+)$", path)
-        if m and method == "DELETE":
-            return self._api_entry_delete(m.group(1))
-
-        if method == "POST" and path == "/api/refresh":
-            return self._api_refresh()
-
-        # ── 旧版兼容路由 ──────────────────────────────
+        # ── Static Profile + legacy static routes ─────────────
         if method == "GET":
             if path == "/" or path == "/index.html":
                 return self._serve_frontend()
@@ -363,6 +309,90 @@ class OttHandler(BaseHTTPRequestHandler):
                 )
 
         _err(self, "Not found", 404)
+
+    def _route_admin(self, method, path) -> bool:
+        """Route the Admin Profile and its legacy `/api` alias."""
+        if method == "GET" and path == "/api/status":
+            self._api_status()
+            return True
+
+        if method == "GET" and path == "/api/sources":
+            self._api_list_sources()
+            return True
+
+        if method == "POST" and path == "/api/sources":
+            self._api_create_source()
+            return True
+
+        if method == "DELETE" and re.match(r"^/api/sources/[a-zA-Z0-9_]+$", path):
+            self._api_delete_source(path.split("/")[-1])
+            return True
+
+        if method == "GET" and path == "/api/scripts":
+            self._api_list_scripts()
+            return True
+
+        m = re.match(r"^/api/scripts/([a-zA-Z0-9_]+)$", path)
+        if m and method == "GET":
+            self._api_script_detail(m.group(1))
+            return True
+
+        m = re.match(r"^/api/scripts/([a-zA-Z0-9_]+)/test$", path)
+        if m and method == "POST":
+            self._api_script_test(m.group(1))
+            return True
+
+        m = re.match(r"^/api/scripts/([a-zA-Z0-9_]+)/run$", path)
+        if m and method == "POST":
+            self._api_script_run(m.group(1))
+            return True
+
+        if method == "POST" and path == "/api/scripts":
+            self._api_create_script()
+            return True
+
+        m = re.match(r"^/api/scripts/([a-zA-Z0-9_]+)/save$", path)
+        if m and method == "POST":
+            self._api_script_save(m.group(1))
+            return True
+
+        m = re.match(r"^/api/scripts/([a-zA-Z0-9_]+)/rename$", path)
+        if m and method == "POST":
+            self._api_script_rename(m.group(1))
+            return True
+
+        m = re.match(r"^/api/scripts/([a-zA-Z0-9_]+)/cron$", path)
+        if m:
+            name = m.group(1)
+            if method == "GET":
+                self._api_script_cron_get(name)
+                return True
+            if method == "POST":
+                self._api_script_cron_set(name)
+                return True
+
+        if method == "GET" and path == "/api/entries/recent":
+            self._api_entries_recent()
+            return True
+
+        if method == "GET" and path == "/api/entries":
+            self._api_entries()
+            return True
+
+        if method == "POST" and path == "/api/entries":
+            self._api_entry_add()
+            return True
+
+        m = re.match(r"^/api/entries/([a-zA-Z0-9_]+)$", path)
+        if m and method == "DELETE":
+            self._api_entry_delete(m.group(1))
+            return True
+
+        if method == "POST" and path == "/api/refresh":
+            self._api_refresh()
+            return True
+
+        return False
 
     def _cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -519,6 +549,7 @@ class OttHandler(BaseHTTPRequestHandler):
 
         _json_resp(self, {
             "version": 2,
+            "admin_api_version": "1.0",
             "adapter_version": __version__,
             "ott_core_version": "1.0",
             "uptime": int(now - self._start_time),
@@ -1951,6 +1982,7 @@ td .tag-green{background:rgba(82,196,26,0.12);color:var(--green)}
 let state = { status: null, sources: [], scripts: [], categories: [], entries: [], libraryPage: 1, libraryLimit: 40, libraryTotal: 0, libraryPages: 0, currentDetailEntry: null };
 let currentScript = null;
 let currentDetailKey = null;
+const ADMIN_API = '/ott-admin/v1';
 function navigate(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -2002,7 +2034,7 @@ async function renderDashboard() {
   document.getElementById('dash-stats').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try {
     const [status, sources, recentData] = await Promise.all([
-      api('GET', '/api/status'), api('GET', '/api/sources'), api('GET', '/api/entries/recent')
+      api('GET', ADMIN_API + '/status'), api('GET', ADMIN_API + '/sources'), api('GET', ADMIN_API + '/entries/recent')
     ]);
     state.status = status;
     state.sources = sources.sources || [];
@@ -2047,7 +2079,7 @@ function renderDashRecent(entries) {
 
 async function fetchAndRenderDashScripts() {
   try {
-    const d = await api('GET', '/api/scripts');
+    const d = await api('GET', ADMIN_API + '/scripts');
     state.scripts = d.scripts || [];
     const el = document.getElementById('dash-scripts');
     if (!state.scripts.length) { el.innerHTML = '<div style="color:var(--text-muted);padding:18px;text-align:center;font-size:13px">暂无脚本</div>'; return; }
@@ -2085,7 +2117,7 @@ function renderDashSysInfo(status) {
 async function fetchAndRenderLibrary() {
   document.getElementById('lib-list').innerHTML = '<div class="card" style="padding:20px;text-align:center;color:var(--text-muted)"><div class="spinner"></div>加载中...</div>';
   try {
-    const data = await api('GET', '/api/entries?limit=500');
+    const data = await api('GET', ADMIN_API + '/entries?limit=500');
     state.entries = data.entries || [];
     state.libraryTotal = data.total || 0;
     state.libraryPages = data.pages || 1;
@@ -2180,7 +2212,7 @@ async function libAddEntry() {
   if (!key || !content) { toast('合集标识和内容为必填', 'red'); return; }
   if (!/^[a-zA-Z0-9_]+$/.test(key)) { toast('合集标识只能含字母数字下划线', 'red'); return; }
   try {
-    const r = await api('POST', '/api/entries', {
+    const r = await api('POST', ADMIN_API + '/entries', {
       source_key: key, title: title || key,
       content: content,
       category: document.getElementById('lib-add-cat').value.trim(),
@@ -2195,7 +2227,7 @@ async function deleteEntry() {
   const e = state.currentDetailEntry;
   if (!e || !confirm('确认删除 "'+(e.title||e.source_key)+'" ？')) return;
   try {
-    await api('DELETE', '/api/entries/'+e.source_key, {entry_id: e.id});
+    await api('DELETE', ADMIN_API + '/entries/'+e.source_key, {entry_id: e.id});
     closeModal('modal-detail');
     fetchAndRenderLibrary();
   } catch(e) { alert('删除失败: '+e.message); }
@@ -2246,7 +2278,7 @@ function openDetail(id) {
 async function fetchAndRenderScripts() {
   document.getElementById('scr-body').innerHTML = '<tr><td colspan="5"><div class="loading"><div class="spinner"></div></div></td></tr>';
   try {
-    const d = await api('GET', '/api/scripts');
+    const d = await api('GET', ADMIN_API + '/scripts');
     state.scripts = d.scripts || [];
     renderScripts();
     document.getElementById('scr-badge').textContent = state.scripts.length;
@@ -2287,7 +2319,7 @@ async function openScript(key) {
   document.getElementById('scr-validation').style.display = 'none';
   document.getElementById('modal-script').classList.add('open');
   try {
-    const d = await api('GET', '/api/scripts/'+key);
+    const d = await api('GET', ADMIN_API + '/scripts/'+key);
     document.getElementById('scr-source-code').textContent = d.source||'(无法读取)';
     document.getElementById('scr-editor').value = d.source||'';
     document.getElementById('scr-rename-input').value = key;
@@ -2324,7 +2356,7 @@ async function runScriptTest() {
   document.getElementById('scr-source-box').style.display='none';
   document.getElementById('scr-edit-box').style.display='none';
   try {
-    const r = await api('POST', '/api/scripts/'+key+'/test');
+    const r = await api('POST', ADMIN_API + '/scripts/'+key+'/test');
     let html = '';
     if (r.stdout) html += '<span class="info">标准输出:</span>\n'+escHtml(r.stdout)+'\n';
     if (r.stderr) html += '\n<span class="err">错误输出:</span>\n'+escHtml(r.stderr)+'\n';
@@ -2345,7 +2377,7 @@ async function runScriptReal() {
   const out = document.getElementById('scr-output');
   out.style.display='block'; term.innerHTML='<span class="info">正在抓取...</span>';
   try {
-    const r = await api('POST', '/api/scripts/'+key+'/run');
+    const r = await api('POST', ADMIN_API + '/scripts/'+key+'/run');
     if (r.ok) { term.innerHTML = '<span class="info">&#10003; 抓取成功</span>\n'+(r.output?escHtml(r.output):''); toast('抓取完成', 'green'); fetchAndRenderScripts(); fetchAndRenderLibrary(); }
     else { term.innerHTML = '<span class="err">&#10007; 失败: '+escHtml(r.error)+'</span>'; toast('抓取失败', 'red'); }
   } catch(e) { term.innerHTML = '<span class="err">错误: '+escHtml(e.message)+'</span>'; }
@@ -2356,7 +2388,7 @@ async function saveScriptEdit() {
   const source = document.getElementById('scr-editor').value;
   if (!key || !source.trim()) return toast('源码不能为空', 'red');
   try {
-    await api('POST', '/api/scripts/'+key+'/save', { source_code: source });
+    await api('POST', ADMIN_API + '/scripts/'+key+'/save', { source_code: source });
     toast('脚本已保存', 'green');
     document.getElementById('scr-source-code').textContent = source;
     document.getElementById('scr-edit-box').style.display = 'none';
@@ -2369,7 +2401,7 @@ async function confirmRename() {
   if (!newKey) return toast('新键名不能为空', 'red');
   if (!/^[a-zA-Z0-9_]+$/.test(newKey)) return toast('只能使用字母数字和下划线', 'red');
   try {
-    await api('POST', '/api/scripts/'+oldKey+'/rename', { new_key: newKey });
+    await api('POST', ADMIN_API + '/scripts/'+oldKey+'/rename', { new_key: newKey });
     toast('已重命名为 fetch_'+newKey+'.py', 'green');
     closeModal('modal-script');
     fetchAndRenderScripts();
@@ -2387,7 +2419,7 @@ async function quickTest(key) {
   document.getElementById('scr-rename-box').style.display='none';
   document.getElementById('scr-validation').style.display='none';
   document.getElementById('modal-script').classList.add('open');
-  try { const d = await api('GET', '/api/scripts/'+key); document.getElementById('scr-source-code').textContent = d.source||''; document.getElementById('scr-editor').value = d.source||''; document.getElementById('scr-rename-input').value = key; } catch(e) {}
+  try { const d = await api('GET', ADMIN_API + '/scripts/'+key); document.getElementById('scr-source-code').textContent = d.source||''; document.getElementById('scr-editor').value = d.source||''; document.getElementById('scr-rename-input').value = key; } catch(e) {}
   setTimeout(() => runScriptTest(), 400);
 }
 
@@ -2401,7 +2433,7 @@ async function quickRun(key) {
   document.getElementById('scr-rename-box').style.display='none';
   document.getElementById('scr-validation').style.display='none';
   document.getElementById('modal-script').classList.add('open');
-  try { const d = await api('GET', '/api/scripts/'+key); document.getElementById('scr-source-code').textContent = d.source||''; document.getElementById('scr-editor').value = d.source||''; document.getElementById('scr-rename-input').value = key; } catch(e) {}
+  try { const d = await api('GET', ADMIN_API + '/scripts/'+key); document.getElementById('scr-source-code').textContent = d.source||''; document.getElementById('scr-editor').value = d.source||''; document.getElementById('scr-rename-input').value = key; } catch(e) {}
   setTimeout(() => runScriptReal(), 400);
 }
 
@@ -2510,7 +2542,7 @@ async function createNewScript() {
   if (!/^[a-zA-Z0-9_]+$/.test(key)) return toast('只能使用字母数字和下划线', 'red');
   if (!source.trim()) return toast('源码不能为空', 'red');
   try {
-    await api('POST', '/api/scripts', { source_key: key, source_code: source });
+    await api('POST', ADMIN_API + '/scripts', { source_key: key, source_code: source });
     toast('脚本 fetch_'+key+'.py 已创建', 'green');
     closeModal('modal-new-script');
     fetchAndRenderScripts();
@@ -2530,11 +2562,11 @@ async function fetchAndRenderSchedules() {
   const body = document.getElementById('sched-body');
   body.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try {
-    const scr = await api('GET', '/api/scripts');
+    const scr = await api('GET', ADMIN_API + '/scripts');
     const scripts = scr.scripts || [];
     if (!scripts.length) { document.getElementById('sched-empty').style.display='block'; body.innerHTML=''; return; }
     document.getElementById('sched-empty').style.display='none';
-    const scheds = await Promise.all(scripts.map(s => api('GET', '/api/scripts/'+s.source_key+'/cron').catch(()=>({}))));
+    const scheds = await Promise.all(scripts.map(s => api('GET', ADMIN_API + '/scripts/'+s.source_key+'/cron').catch(()=>({}))));
     state.schedules = {};
     scripts.forEach((s,i) => { state.schedules[s.source_key] = scheds[i]||{}; });
     renderSchedules();
@@ -2559,7 +2591,7 @@ function renderSchedules() {
 
 async function updateSchedule(key) {
   const interval = document.getElementById('sched-sel-'+key).value;
-  try { await api('POST', '/api/scripts/'+key+'/cron', { interval, enabled: interval!=='manual' }); toast('定时已更新: '+key, 'green'); fetchAndRenderSchedules(); }
+  try { await api('POST', ADMIN_API + '/scripts/'+key+'/cron', { interval, enabled: interval!=='manual' }); toast('定时已更新: '+key, 'green'); fetchAndRenderSchedules(); }
   catch(e) { toast('更新失败: '+e.message, 'red'); }
 }
 
@@ -2568,7 +2600,7 @@ async function toggleSchedule(key) {
   const on = !tog.classList.contains('on');
   const sel = document.getElementById('sched-sel-'+key);
   const interval = on ? (sel.value==='manual'?'daily':sel.value) : 'manual';
-  try { await api('POST', '/api/scripts/'+key+'/cron', { interval, enabled: on }); toast(on?'定时已开启':'定时已关闭', 'green'); fetchAndRenderSchedules(); }
+  try { await api('POST', ADMIN_API + '/scripts/'+key+'/cron', { interval, enabled: on }); toast(on?'定时已开启':'定时已关闭', 'green'); fetchAndRenderSchedules(); }
   catch(e) { toast('操作失败: '+e.message, 'red'); }
 }
 
@@ -2578,7 +2610,7 @@ async function toggleSchedule(key) {
 
 async function fetchAndRenderSettings() {
   try {
-    const s = await api('GET', '/api/status');
+    const s = await api('GET', ADMIN_API + '/status');
     let uptimeStr = '刚刚';
     if (s.uptime) {
       const u = s.uptime;
@@ -2603,17 +2635,17 @@ async function fetchAndRenderSettings() {
 
 async function deleteSource(key) {
   if (!confirm('确定删除「'+key+'」？')) return;
-  try { await api('DELETE', '/api/sources/'+key); toast('已删除: '+key, 'green'); fetchAndRenderLibrary(); }
+  try { await api('DELETE', ADMIN_API + '/sources/'+key); toast('已删除: '+key, 'green'); fetchAndRenderLibrary(); }
   catch(e) { toast('删除失败: '+e.message, 'red'); }
 }
 
 async function refreshStatus() {
-  try { state.status = await api('GET', '/api/status'); renderDashSysInfo(state.status); toast('已刷新', 'green'); }
+  try { state.status = await api('GET', ADMIN_API + '/status'); renderDashSysInfo(state.status); toast('已刷新', 'green'); }
   catch(e) { toast('刷新失败', 'red'); }
 }
 
 async function refreshAll() {
-  try { await api('POST', '/api/refresh'); toast('索引已重建', 'green'); renderDashboard(); }
+  try { await api('POST', ADMIN_API + '/refresh'); toast('索引已重建', 'green'); renderDashboard(); }
   catch(e) { toast('重建失败: '+e.message, 'red'); }
 }
 

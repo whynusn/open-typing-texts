@@ -277,6 +277,17 @@ class OttCoreV1Test(OttAdapterTest):
         except urllib.error.HTTPError as e:
             return e.code, json.loads(e.read())
 
+    def _post_json(self, port: int, path: str, body: dict | None = None) -> dict:
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{port}{path}",
+            data=json.dumps(body or {}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            self.assertEqual(response.status, 200)
+            return json.loads(response.read())
+
     def test_capabilities_declares_ott_v1_service(self):
         port = self._start_server()
         data = self._get_json(port, "/ott/v1/capabilities")
@@ -412,6 +423,32 @@ class OttCoreV1Test(OttAdapterTest):
         self.assertEqual(content["source_key"], "legacy")
         self.assertEqual(api_entries["total"], 1)
         self.assertEqual(api_entries["entries"][0]["content"], "hello")
+
+    def test_admin_profile_routes_share_the_legacy_implementation(self):
+        self._write_content(
+            "admin",
+            [
+                {
+                    "title": "managed",
+                    "content": "hello",
+                    "fetched_at": "2024-01-01T00:00:00+08:00",
+                }
+            ],
+        )
+        self._rebuild_index()
+        port = self._start_server()
+
+        status = self._get_json(port, "/ott-admin/v1/status")
+        legacy_status = self._get_json(port, "/api/status")
+        sources = self._get_json(port, "/ott-admin/v1/sources")
+        entries = self._get_json(port, "/ott-admin/v1/entries?limit=10")
+        refreshed = self._post_json(port, "/ott-admin/v1/refresh")
+
+        self.assertEqual(status["admin_api_version"], "1.0")
+        self.assertEqual(status["adapter_version"], legacy_status["adapter_version"])
+        self.assertEqual(sources["sources"][0]["source_key"], "admin")
+        self.assertEqual(entries["entries"][0]["content"], "hello")
+        self.assertTrue(refreshed["ok"])
 
     def test_static_profile_files_are_generated_and_served(self):
         content = "甲" * 2500
