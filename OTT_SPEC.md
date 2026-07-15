@@ -1,6 +1,6 @@
 # OTT Core v1 Specification
 
-> Status: draft | Scope: read-only text distribution protocol
+> Status: stable | Scope: read-only text distribution protocol
 
 OTT Core v1 defines a client-facing protocol for typing text discovery and
 delivery. Fetch scripts, local storage engines, admin APIs, and Web UI behavior

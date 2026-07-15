@@ -1,0 +1,12 @@
+{
+  "entry_id": "ent_long",
+  "source_key": "long",
+  "title": "Long",
+  "content_mode": "segmented",
+  "char_count": 4500,
+  "current_revision_id": "rev_long",
+  "content_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "segment_count": 5,
+  "segment_size_hint": 1000,
+  "content": "segmented detail must not include full content"
+}

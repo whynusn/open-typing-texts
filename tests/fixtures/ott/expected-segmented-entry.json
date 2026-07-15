@@ -1,0 +1,28 @@
+{
+  "source": {
+    "source_key": "long_fixture",
+    "title": "Long Fixture",
+    "entry_id": "ent_long_fixture",
+    "revision_id": "rev_long_fixture_v1",
+    "fetched_at": "2026-07-13T00:00:00+08:00",
+    "content_char": "甲",
+    "content_repeat": 4500
+  },
+  "summary": {
+    "entry_id": "ent_long_fixture",
+    "source_key": "long_fixture",
+    "title": "Long Fixture",
+    "char_count": 4500,
+    "content_mode": "segmented",
+    "current_revision_id": "rev_long_fixture_v1",
+    "segment_count": 5,
+    "segment_size_hint": 1000
+  },
+  "segment": {
+    "index": 2,
+    "start_char": 1000,
+    "end_char": 2000,
+    "char_count": 1000,
+    "content_hash": "sha256:b4059a974eb4d1254acff502e0aa075794e9877561c40655d65a29c77cc5a9da"
+  }
+}

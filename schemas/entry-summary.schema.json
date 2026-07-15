@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-typing-texts.local/schemas/entry-summary.schema.json",
+  "title": "OTT Core v1 EntrySummary",
+  "type": "object",
+  "required": [
+    "entry_id",
+    "source_key",
+    "title",
+    "char_count",
+    "content_mode",
+    "current_revision_id"
+  ],
+  "not": {"required": ["content"]},
+  "additionalProperties": true,
+  "properties": {
+    "entry_id": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+    "source_key": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+    "title": {"type": "string"},
+    "preview": {"type": "string"},
+    "char_count": {"type": "integer", "minimum": 0},
+    "charCount": {"type": "integer", "minimum": 0},
+    "content_mode": {"enum": ["inline", "segmented"]},
+    "current_revision_id": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+    "updated_at": {"type": "string"},
+    "tags": {"type": "array", "items": {"type": "string"}},
+    "segment_count": {"type": "integer", "minimum": 0},
+    "segment_size_hint": {"type": "integer", "minimum": 0}
+  }
+}

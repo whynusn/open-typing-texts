@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: uv run pytest -q
+
+      - name: Validate OTT fixtures
+        run: |
+          uv run ott-adapter validate tests/fixtures/ott/valid-inline-content.json
+          uv run ott-adapter validate tests/fixtures/ott/valid-entries-content.json
+          uv run ott-adapter validate tests/fixtures/ott/valid-explicit-ids-content.json
+          uv run ott-adapter validate tests/fixtures/ott/valid-duplicate-title-content.json
+          uv run ott-adapter validate --static-profile tests/fixtures/ott/static-profile
+
+      - name: Validate protocol contract files
+        run: |
+          uv run python - <<'PY'
+          import json
+          from pathlib import Path
+
+          for path in sorted(Path("schemas").glob("*.schema.json")):
+              data = json.loads(path.read_text(encoding="utf-8"))
+              if data.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
+                  raise SystemExit(f"{path}: unexpected or missing JSON Schema draft")
+          PY
+
+      - name: Static-check fetch scripts
+        run: |
+          uv run ott-adapter validate-script scripts/fetch_poem.py
+          uv run ott-adapter validate-script scripts/fetch_jisubei.py
+
+      - name: Reject tracked generated content
+        run: |
+          tracked="$(git ls-files -- content registry_index.json ott.json sources.json entries.json entries segments)"
+          if [ -n "$tracked" ]; then
+            printf '%s\n' "$tracked"
+            exit 1
+          fi
+
+      - name: Guard against CI crawls
+        run: |
+          uv run python - <<'PY'
+          from pathlib import Path
+
+          forbidden = ["--" + "run", "--" + "fetch", "python scripts/" + "fetch_"]
+          failed = False
+          for pattern in ("*.yml", "*.yaml"):
+              paths = sorted(Path(".github/workflows").glob(pattern))
+              for path in paths:
+                  text = path.read_text(encoding="utf-8")
+                  for value in forbidden:
+                      if value in text:
+                          print(f"{path}: forbidden crawler command marker: {value}")
+                          failed = True
+          raise SystemExit(1 if failed else 0)
+          PY

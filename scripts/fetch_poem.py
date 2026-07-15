@@ -28,12 +28,16 @@ def _load_data():
         return {"source_key": SOURCE_KEY, "entries": []}
     d = json.loads(OUTPUT_PATH.read_text(encoding="utf-8"))
     if "entries" not in d and "content" in d:
-        d["entries"] = [{
-            "title": d.pop("title", ""),
-            "content": d.pop("content", ""),
-            "metadata": d.pop("metadata", {}),
-            "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%S+08:00", time.localtime()),
-        }]
+        d["entries"] = [
+            {
+                "title": d.pop("title", ""),
+                "content": d.pop("content", ""),
+                "metadata": d.pop("metadata", {}),
+                "fetched_at": time.strftime(
+                    "%Y-%m-%dT%H:%M:%S+08:00", time.localtime()
+                ),
+            }
+        ]
     d.setdefault("entries", [])
     return d
 
@@ -48,7 +52,9 @@ def _append_entry(d, entry):
             d["content"] = content
             d["metadata"] = entry.get("metadata", {})
             tmp = OUTPUT_PATH.with_suffix(".tmp")
-            tmp.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+            tmp.write_text(
+                json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
             tmp.replace(OUTPUT_PATH)
             print(f"[fetch_poem] 已更新（重复内容）— 共 {len(d['entries'])} 篇")
             return
@@ -63,28 +69,25 @@ def _append_entry(d, entry):
     print(f"[fetch_poem] 已追加 — 共 {len(d['entries'])} 篇")
 
 
-def fetch_poem(date_str: str, dry_run: bool = False) -> bool:
-    try:
-        with httpx.Client(timeout=10.0, trust_env=False) as client:
-            resp = client.get(API_URL, params={"c": "i"})
-            resp.raise_for_status()
-            data = resp.json()
-    except Exception as e:
-        print(f"[fetch_poem] 抓取失败: {e}")
-        return False
+def fetch_raw() -> dict:
+    with httpx.Client(timeout=10.0, trust_env=False) as client:
+        resp = client.get(API_URL, params={"c": "i"})
+        resp.raise_for_status()
+        return resp.json()
 
-    content = data.get("hitokoto", "")
+
+def transform(raw, date_str: str) -> dict:
+    if not isinstance(raw, dict):
+        return {}
+    content = raw.get("hitokoto", "")
     if not content:
-        print("[fetch_poem] 源站未返回有效文本")
-        return False
-
-    from_who = data.get("from_who") or ""
-    from_source = data.get("from") or "每日文本"
+        return {}
+    from_who = raw.get("from_who") or ""
+    from_source = raw.get("from") or "每日文本"
     description = from_source
     if from_who:
         description = f"《{from_source}》{from_who}"
-
-    entry = {
+    return {
         "title": from_source,
         "content": content,
         "metadata": {
@@ -96,6 +99,25 @@ def fetch_poem(date_str: str, dry_run: bool = False) -> bool:
             "source_url": "https://hitokoto.cn",
         },
     }
+
+
+def fetch_poem(date_str: str, dry_run: bool = False) -> bool:
+    try:
+        entry = transform(fetch_raw(), date_str)
+    except httpx.HTTPError as e:
+        print(f"[fetch_poem] HTTP 错误: {e}")
+        return False
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"[fetch_poem] 解析错误: {e}")
+        return False
+
+    if not entry:
+        print("[fetch_poem] 源站未返回有效文本")
+        return False
+
+    content = str(entry.get("content", ""))
+    metadata = entry.get("metadata", {})
+    description = metadata.get("description", "") if isinstance(metadata, dict) else ""
 
     if dry_run:
         print(f"[fetch_poem] dry_run: {content[:30]}... ({len(content)} 字)")
@@ -109,7 +131,9 @@ def fetch_poem(date_str: str, dry_run: bool = False) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="每日诗句抓取")
-    parser.add_argument("--date", default=datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    parser.add_argument(
+        "--date", default=datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     return 0 if fetch_poem(args.date, dry_run=args.dry_run) else 1

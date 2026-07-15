@@ -1,0 +1,23 @@
+{
+  "entries": [
+    {
+      "entry_id": "ent_static_fixture",
+      "source_key": "static_fixture",
+      "title": "Static Fixture Entry",
+      "preview": "abcdefghij",
+      "char_count": 13,
+      "charCount": 13,
+      "content_mode": "segmented",
+      "current_revision_id": "rev_static_fixture",
+      "updated_at": "2026-07-13T00:00:00+08:00",
+      "fetched_at": "2026-07-13T00:00:00+08:00",
+      "category": "fixture",
+      "tags": ["fixture"],
+      "source_label": "Static Fixture",
+      "segment_count": 3,
+      "segment_size_hint": 5
+    }
+  ],
+  "total": 1,
+  "updated_at": "2026-07-13T00:00:00+00:00"
+}

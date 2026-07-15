@@ -1,6 +1,14 @@
 include README.md
 include CONTRIBUTING.md
 include SPEC.md
+include LEGACY_SPEC.md
+include OTT_SPEC.md
+include COMPATIBILITY.md
+include RELEASE_CHECKLIST.md
 include pyproject.toml
+recursive-include schemas *.json
 recursive-include scripts *.py
 recursive-include ott_adapter *.py
+recursive-include ott_adapter *.html
+recursive-include tests/fixtures *.json
+recursive-include tests/fixtures *.txt

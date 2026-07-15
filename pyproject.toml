@@ -13,8 +13,16 @@ dependencies = [
     "watchdog>=6.0.0",     # 文件变更事件驱动（热更新）
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
 [tool.setuptools]
 packages = ["ott_adapter"]
+
+[tool.setuptools.package-data]
+ott_adapter = ["frontend.html"]
 
 [project.scripts]
 ott-adapter = "ott_adapter.__main__:main"

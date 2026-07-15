@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-typing-texts.local/schemas/source.schema.json",
+  "title": "OTT Core v1 Source",
+  "type": "object",
+  "required": ["source_key", "label"],
+  "additionalProperties": true,
+  "properties": {
+    "source_key": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+    "label": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "tags": {"type": "array", "items": {"type": "string"}},
+    "rights_summary": {"type": "string"},
+    "entry_count": {"type": "integer", "minimum": 0},
+    "char_count": {"type": "integer", "minimum": 0},
+    "updated_at": {"type": "string"}
+  }
+}

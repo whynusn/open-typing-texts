@@ -1,0 +1,11 @@
+{
+  "entry_id": "ent_summary",
+  "source_key": "inline",
+  "title": "Inline",
+  "preview": "hello",
+  "char_count": 11,
+  "content_mode": "inline",
+  "current_revision_id": "rev_summary",
+  "updated_at": "2026-07-01T10:00:00+08:00",
+  "tags": ["fixture"]
+}

@@ -1,0 +1,16 @@
+{
+  "sources": [
+    {
+      "source_key": "static_fixture",
+      "label": "Static Fixture",
+      "description": "Static Profile fixture",
+      "tags": ["fixture"],
+      "rights_summary": "test-only",
+      "category": "fixture",
+      "entry_count": 1,
+      "char_count": 13,
+      "updated_at": "2026-07-13T00:00:00+00:00"
+    }
+  ],
+  "total": 1
+}

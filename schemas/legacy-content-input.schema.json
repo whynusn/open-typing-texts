@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-typing-texts.local/schemas/legacy-content-input.schema.json",
+  "title": "OTT Legacy Content Input",
+  "type": "object",
+  "required": ["source_key"],
+  "additionalProperties": true,
+  "properties": {
+    "source_key": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+    "title": {"type": "string"},
+    "content": {"type": "string"},
+    "metadata": {"type": "object"},
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "content"],
+        "properties": {
+          "entry_id": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+          "revision_id": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+          "title": {"type": "string"},
+          "content": {"type": "string", "minLength": 1},
+          "metadata": {"type": "object"},
+          "fetched_at": {"type": "string"}
+        }
+      }
+    }
+  },
+  "anyOf": [
+    {"required": ["content"]},
+    {"required": ["entries"]}
+  ]
+}

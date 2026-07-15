@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-typing-texts.local/schemas/service-responses.schema.json",
+  "title": "OTT Core v1 Service Responses",
+  "$defs": {
+    "error": {
+      "type": "object",
+      "required": ["error"],
+      "properties": {
+        "error": {
+          "type": "object",
+          "required": ["code", "message"],
+          "properties": {
+            "code": {"type": "string", "minLength": 1},
+            "message": {"type": "string"}
+          }
+        }
+      }
+    },
+    "entries": {
+      "type": "object",
+      "required": ["entries", "total"],
+      "properties": {
+        "entries": {"type": "array"},
+        "total": {"type": "integer", "minimum": 0},
+        "page": {"type": "integer", "minimum": 1},
+        "limit": {"type": "integer", "minimum": 1},
+        "pages": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

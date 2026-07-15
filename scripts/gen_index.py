@@ -19,8 +19,9 @@ INDEX_PATH = ROOT_DIR / "registry_index.json"
 
 
 # 文件体积限制
-WARN_SIZE_BYTES = 1_048_576      # 1 MB：超过此值打印警告
-MAX_SIZE_BYTES = 104_857_600     # 100 MB：GitHub 硬性上限，超过此值跳过
+WARN_SIZE_BYTES = 1_048_576  # 1 MB：超过此值打印警告
+MAX_SIZE_BYTES = 104_857_600  # 100 MB：GitHub 硬性上限，超过此值跳过
+
 
 def build_index() -> None:
     """扫描 content/ 目录，生成/更新 registry_index.json。"""
@@ -30,10 +31,16 @@ def build_index() -> None:
         # 文件体积校验
         file_size = fpath.stat().st_size
         if file_size > MAX_SIZE_BYTES:
-            print(f"[gen_index] 跳过 {fpath.name}: 文件过大 {file_size / 1024 / 1024:.1f} MB（上限 {MAX_SIZE_BYTES / 1024 / 1024:.0f} MB）", file=sys.stderr)
+            print(
+                f"[gen_index] 跳过 {fpath.name}: 文件过大 {file_size / 1024 / 1024:.1f} MB（上限 {MAX_SIZE_BYTES / 1024 / 1024:.0f} MB）",
+                file=sys.stderr,
+            )
             continue
         if file_size > WARN_SIZE_BYTES:
-            print(f"[gen_index] 警告 {fpath.name}: 文件较大 {file_size / 1024:.0f} KB（建议 ≤ {WARN_SIZE_BYTES / 1024:.0f} KB）", file=sys.stderr)
+            print(
+                f"[gen_index] 警告 {fpath.name}: 文件较大 {file_size / 1024:.0f} KB（建议 ≤ {WARN_SIZE_BYTES / 1024:.0f} KB）",
+                file=sys.stderr,
+            )
 
         try:
             with fpath.open(encoding="utf-8") as f:
@@ -86,9 +93,8 @@ def build_index() -> None:
             old_data = json.loads(INDEX_PATH.read_text(encoding="utf-8"))
             old_sources = old_data.get("sources", [])
             new_sources = index.get("sources", [])
-            if (
-                old_sources == new_sources
-                and old_data.get("version") == index.get("version")
+            if old_sources == new_sources and old_data.get("version") == index.get(
+                "version"
             ):
                 print(f"[gen_index] 内容无变化，跳过写入 ({len(sources)} 个源)")
                 return

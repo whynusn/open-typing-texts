@@ -1,0 +1,81 @@
+{
+  "source_fixture": "valid-entries-content.json",
+  "summaries": [
+    {
+      "entry_id": "ent_2e4dd90f82d6457f800386ab",
+      "source_key": "history",
+      "title": "First",
+      "preview": "first text",
+      "char_count": 10,
+      "charCount": 10,
+      "content_mode": "inline",
+      "current_revision_id": "rev_c54fb3eed3384bf3d371380b",
+      "updated_at": "2026-07-01T10:00:00+08:00",
+      "fetched_at": "2026-07-01T10:00:00+08:00",
+      "category": "fixture",
+      "tags": ["one"],
+      "source_label": "Second",
+      "segment_count": 0,
+      "segment_size_hint": 0
+    },
+    {
+      "entry_id": "ent_a85912dee0d24c5be22d0f24",
+      "source_key": "history",
+      "title": "Second",
+      "preview": "second text",
+      "char_count": 11,
+      "charCount": 11,
+      "content_mode": "inline",
+      "current_revision_id": "rev_b59e2021a74573a6adb13168",
+      "updated_at": "2026-07-02T10:00:00+08:00",
+      "fetched_at": "2026-07-02T10:00:00+08:00",
+      "category": "fixture",
+      "tags": ["two"],
+      "source_label": "Second",
+      "segment_count": 0,
+      "segment_size_hint": 0
+    }
+  ],
+  "details": [
+    {
+      "entry_id": "ent_2e4dd90f82d6457f800386ab",
+      "source_key": "history",
+      "title": "First",
+      "preview": "first text",
+      "char_count": 10,
+      "charCount": 10,
+      "content_mode": "inline",
+      "current_revision_id": "rev_c54fb3eed3384bf3d371380b",
+      "updated_at": "2026-07-01T10:00:00+08:00",
+      "fetched_at": "2026-07-01T10:00:00+08:00",
+      "category": "fixture",
+      "tags": ["one"],
+      "source_label": "Second",
+      "segment_count": 0,
+      "segment_size_hint": 0,
+      "content_hash": "sha256:fa0343363edb8cb3ed1c098a47c28e56a7d7c8ade8dce7ed408b12b6280dd135",
+      "revision_id": "rev_c54fb3eed3384bf3d371380b",
+      "content": "first text"
+    },
+    {
+      "entry_id": "ent_a85912dee0d24c5be22d0f24",
+      "source_key": "history",
+      "title": "Second",
+      "preview": "second text",
+      "char_count": 11,
+      "charCount": 11,
+      "content_mode": "inline",
+      "current_revision_id": "rev_b59e2021a74573a6adb13168",
+      "updated_at": "2026-07-02T10:00:00+08:00",
+      "fetched_at": "2026-07-02T10:00:00+08:00",
+      "category": "fixture",
+      "tags": ["two"],
+      "source_label": "Second",
+      "segment_count": 0,
+      "segment_size_hint": 0,
+      "content_hash": "sha256:633ecdd67db64b19c91a36ea6fda2f1f7db0be1887f2ca697b25cf7982896167",
+      "revision_id": "rev_b59e2021a74573a6adb13168",
+      "content": "second text"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "entry_id": "ent_summary",
+  "source_key": "inline",
+  "title": "Inline",
+  "preview": "hello",
+  "char_count": 11,
+  "content_mode": "inline",
+  "current_revision_id": "rev_summary",
+  "content": "summary must not include content"
+}

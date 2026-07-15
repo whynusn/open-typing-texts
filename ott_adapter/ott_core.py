@@ -1,9 +1,3 @@
-"""OTT Core v1 data-model helpers.
-
-This module is shared by the adapter server and index builder so the public
-read-only protocol uses one identity and summary model.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -36,33 +30,39 @@ def entries_from_content_file(path: Path, include_content: bool = True) -> list[
         return []
     source_key = str(data.get("source_key") or path.stem)
     source_label = str(data.get("title") or source_key)
-    top_meta = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    raw_top_meta = data.get("metadata")
+    top_meta: dict = raw_top_meta if isinstance(raw_top_meta, dict) else {}
     raw_entries = _raw_entries(data, top_meta, path)
     base_ids: list[str] = []
     for entry in raw_entries:
-        content = entry.get("content", "") if isinstance(entry.get("content"), str) else ""
+        content = (
+            entry.get("content", "") if isinstance(entry.get("content"), str) else ""
+        )
         base_ids.append(_entry_base_id(source_key, entry, content))
     duplicate_bases = {value for value in base_ids if base_ids.count(value) > 1}
 
     result = []
     for entry, base_id in zip(raw_entries, base_ids, strict=False):
-        content = entry.get("content", "") if isinstance(entry.get("content"), str) else ""
+        content = (
+            entry.get("content", "") if isinstance(entry.get("content"), str) else ""
+        )
         if not content:
             continue
-        meta = entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
+        raw_meta = entry.get("metadata")
+        meta: dict = raw_meta if isinstance(raw_meta, dict) else {}
         content_hash = sha256_text(content)
         entry_id = str(entry.get("entry_id") or meta.get("entry_id") or "")
         if not valid_identifier(entry_id):
             entry_id = base_id
             if base_id in duplicate_bases:
                 entry_id = f"{base_id}_{content_hash.removeprefix('sha256:')[:8]}"
-        revision_id = str(
-            entry.get("revision_id") or meta.get("revision_id") or ""
-        )
+        revision_id = str(entry.get("revision_id") or meta.get("revision_id") or "")
         if not valid_identifier(revision_id):
             revision_id = (
                 "rev_"
-                + hashlib.sha256(f"{entry_id}\0{content_hash}".encode("utf-8")).hexdigest()[:24]
+                + hashlib.sha256(
+                    f"{entry_id}\0{content_hash}".encode("utf-8")
+                ).hexdigest()[:24]
             )
         char_count = len(content)
         content_mode = (
@@ -75,7 +75,9 @@ def entries_from_content_file(path: Path, include_content: bool = True) -> list[
             "title": str(entry.get("title") or source_label or source_key),
             "preview": content[:100].replace("\n", " ").strip(),
             "category": str(meta.get("category", top_meta.get("category", "")) or ""),
-            "tags": meta.get("tags", []) if isinstance(meta.get("tags", []), list) else [],
+            "tags": meta.get("tags", [])
+            if isinstance(meta.get("tags", []), list)
+            else [],
             "fetched_at": str(entry.get("fetched_at", "") or ""),
             "char_count": char_count,
             "charCount": char_count,
@@ -128,13 +130,17 @@ def entry_detail(entry: dict, include_content: bool = True) -> dict:
     )
     if entry.get("content_mode") == "segmented":
         detail["segment_count"] = entry.get("segment_count", 0)
-        detail["segment_size_hint"] = entry.get("segment_size_hint", DEFAULT_SEGMENT_SIZE)
+        detail["segment_size_hint"] = entry.get(
+            "segment_size_hint", DEFAULT_SEGMENT_SIZE
+        )
         return detail
     detail["content"] = entry.get("content", "") if include_content else ""
     return detail
 
 
-def build_static_profile(data_dir: Path, index: dict, adapter_version: str = "") -> None:
+def build_static_profile(
+    data_dir: Path, index: dict, adapter_version: str = ""
+) -> None:
     """Generate the OTT Static Profile files beside registry_index.json."""
     all_entries = _entries_from_content_dir(data_dir)
     summaries = [entry_summary(entry) for entry in all_entries]
@@ -218,7 +224,8 @@ def _raw_entries(data: dict, top_meta: dict, path: Path) -> list[dict]:
 
 def _entry_base_id(source_key: str, entry: dict, content: str) -> str:
     explicit = str(entry.get("entry_id") or "")
-    meta = entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
+    raw_meta = entry.get("metadata")
+    meta: dict = raw_meta if isinstance(raw_meta, dict) else {}
     explicit = explicit or str(meta.get("entry_id") or "")
     if valid_identifier(explicit):
         return explicit

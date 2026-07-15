@@ -1,0 +1,22 @@
+{
+  "source_key": "history",
+  "title": "Second",
+  "content": "second text",
+  "metadata": {
+    "category": "fixture"
+  },
+  "entries": [
+    {
+      "title": "First",
+      "content": "first text",
+      "metadata": {"tags": ["one"]},
+      "fetched_at": "2026-07-01T10:00:00+08:00"
+    },
+    {
+      "title": "Second",
+      "content": "second text",
+      "metadata": {"tags": ["two"]},
+      "fetched_at": "2026-07-02T10:00:00+08:00"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-typing-texts.local/schemas/static-profile.schema.json",
+  "title": "OTT Core v1 Static Profile Manifest",
+  "type": "object",
+  "required": ["protocol", "version", "profiles", "features"],
+  "additionalProperties": true,
+  "properties": {
+    "protocol": {"const": "ott"},
+    "version": {"const": "1.0"},
+    "profiles": {
+      "type": "array",
+      "items": {"type": "string"},
+      "contains": {"const": "static"}
+    },
+    "adapter_version": {"type": "string"},
+    "updated_at": {"type": "string"},
+    "features": {
+      "type": "object",
+      "required": ["entry_summary", "inline_content", "segmented_content"],
+      "properties": {
+        "entry_summary": {"type": "boolean"},
+        "inline_content": {"type": "boolean"},
+        "segmented_content": {"type": "boolean"},
+        "search": {"type": "boolean"},
+        "static_fallback": {"type": "boolean"}
+      }
+    }
+  }
+}

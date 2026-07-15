@@ -1,0 +1,10 @@
+{
+  "source_key": "inline",
+  "title": "Inline",
+  "content": "hello world",
+  "metadata": {
+    "description": "small text",
+    "category": "fixture",
+    "tags": ["inline"]
+  }
+}

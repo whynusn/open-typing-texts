@@ -18,6 +18,14 @@ sources.json
 entries.json
 entries/
 segments/
+!tests/fixtures/ott/static-profile/
+!tests/fixtures/ott/static-profile/ott.json
+!tests/fixtures/ott/static-profile/sources.json
+!tests/fixtures/ott/static-profile/entries.json
+!tests/fixtures/ott/static-profile/entries/
+!tests/fixtures/ott/static-profile/entries/*.json
+!tests/fixtures/ott/static-profile/segments/
+!tests/fixtures/ott/static-profile/segments/**
 
 # IDE
 .vscode/

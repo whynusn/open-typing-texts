@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-typing-texts.local/schemas/entry-detail.schema.json",
+  "title": "OTT Core v1 EntryDetail",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "entry_id",
+        "source_key",
+        "title",
+        "content_mode",
+        "char_count",
+        "current_revision_id",
+        "content_hash",
+        "content"
+      ],
+      "properties": {
+        "content_mode": {"const": "inline"},
+        "content": {"type": "string", "minLength": 1}
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "entry_id",
+        "source_key",
+        "title",
+        "content_mode",
+        "char_count",
+        "current_revision_id",
+        "content_hash",
+        "segment_count",
+        "segment_size_hint"
+      ],
+      "not": {"required": ["content"]},
+      "properties": {
+        "content_mode": {"const": "segmented"},
+        "segment_count": {"type": "integer", "minimum": 1},
+        "segment_size_hint": {"type": "integer", "minimum": 1}
+      }
+    }
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "entry_id": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+    "source_key": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+    "title": {"type": "string"},
+    "char_count": {"type": "integer", "minimum": 0},
+    "current_revision_id": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+    "revision_id": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+    "content_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

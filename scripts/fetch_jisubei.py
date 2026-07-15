@@ -13,6 +13,7 @@ DISCLAIMER: 本脚本仅供技术学习，请确保抓取内容符合目标网�
 
 import argparse
 import base64
+import importlib
 import json
 import os
 import sys
@@ -21,7 +22,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
-from Crypto.Cipher import AES
 
 # ── 赛文 API 配置 ────────────────────────────────────────────────────
 SAIWEN_API_URL = os.getenv(
@@ -54,25 +54,13 @@ def _encrypt(data: dict) -> str:
     """
     raw = json.dumps(data, ensure_ascii=False).encode("latin-1")
     padded = _zero_pad(raw)
-    cipher = AES.new(KEY, AES.MODE_CBC, IV)
+    aes = importlib.import_module("Crypto.Cipher.AES")
+    cipher = aes.new(KEY, aes.MODE_CBC, IV)
     encrypted = cipher.encrypt(padded)
     return base64.b64encode(encrypted).decode("utf-8")
 
 
-# ── 爬虫逻辑 ─────────────────────────────────────────────────────────
-
-
-def fetch_jisubei(date_str: str, dry_run: bool = False) -> bool:
-    """抓取当日极速杯文本。
-
-    Args:
-        date_str: 日期字符串 YYYY-MM-DD（用于输出文件名）
-        dry_run: 是否仅测试连接不写入文件
-
-    Returns:
-        True 表示成功获取内容
-    """
-    # 构造赛文 API 请求体（与 1.x GetSaiWen.py 完全一致）
+def fetch_raw() -> dict:
     payload_data = {
         "competitionType": 0,
         "snumflag": "1",
@@ -85,20 +73,14 @@ def fetch_jisubei(date_str: str, dry_run: bool = False) -> bool:
     encrypted = _encrypt(payload_data)
     post_payload = {"0": encrypted[1:]}  # 去掉首字符
 
-    try:
-        with httpx.Client(timeout=20.0, trust_env=False) as client:
-            resp = client.post(SAIWEN_API_URL, json=post_payload)
-            resp.raise_for_status()
-            res_data = resp.json()
-    except httpx.HTTPError as e:
-        print(f"[fetch_jisubei] HTTP 错误: {e}")
-        return False
-    except (json.JSONDecodeError, ValueError) as e:
-        print(f"[fetch_jisubei] 解析错误: {e}")
-        return False
+    with httpx.Client(timeout=20.0, trust_env=False) as client:
+        resp = client.post(SAIWEN_API_URL, json=post_payload)
+        resp.raise_for_status()
+        return resp.json()
 
-    # 解析响应（与 1.x 响应解析逻辑一致）
-    msg = res_data.get("msg")
+
+def transform(raw: dict, date_str: str) -> dict:
+    msg = raw.get("msg")
     content = ""
     title = ""
 
@@ -106,35 +88,19 @@ def fetch_jisubei(date_str: str, dry_run: bool = False) -> bool:
         content = msg
         title = "极速杯"
     elif isinstance(msg, dict):
-        # msg["0"] 是文本内容，msg["a_name"] 是标题
         if "0" in msg:
             content = str(msg["0"])
         if "a_name" in msg:
             title = str(msg["a_name"])
-        # 备选：msg["content"] 有时也包含内容
         if not content and "content" in msg:
             content = str(msg["content"])
 
     if not content:
-        print("[fetch_jisubei] 源站未返回有效文本内容")
-        print(
-            f"[fetch_jisubei] 原始响应: {json.dumps(res_data, ensure_ascii=False)[:200]}"
-        )
-        return False
+        return {}
 
     title = title or f"极速杯 {date_str}"
-
-    if dry_run:
-        print(f"[fetch_jisubei] dry_run: 获取到 {len(content)} 字符")
-        print(f"[fetch_jisubei] 标题: {title}")
-        print(f"[fetch_jisubei] 内容预览: {content[:50]}...")
-        return True
-
-    # 描述：正文前 80 字（避免与标题重复，同时预览内容）
     description = content[:80].replace("\n", " ").strip()
-
-    # 构建 registry 标准内容（固定 source_key，单文件覆盖）
-    jisubei_content = {
+    return {
         "source_key": "jisubei",
         "title": title,
         "content": content,
@@ -146,6 +112,29 @@ def fetch_jisubei(date_str: str, dry_run: bool = False) -> bool:
             "date": date_str,
         },
     }
+
+
+def fetch_jisubei(date_str: str, dry_run: bool = False) -> bool:
+    try:
+        jisubei_content = transform(fetch_raw(), date_str)
+    except httpx.HTTPError as e:
+        print(f"[fetch_jisubei] HTTP 错误: {e}")
+        return False
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"[fetch_jisubei] 解析错误: {e}")
+        return False
+
+    if not jisubei_content:
+        print("[fetch_jisubei] 源站未返回有效文本内容")
+        return False
+
+    if dry_run:
+        content = str(jisubei_content.get("content", ""))
+        title = str(jisubei_content.get("title", ""))
+        print(f"[fetch_jisubei] dry_run: 获取到 {len(content)} 字符")
+        print(f"[fetch_jisubei] 标题: {title}")
+        print(f"[fetch_jisubei] 内容预览: {content[:50]}...")
+        return True
 
     _append_entry(jisubei_content)
     print(f"[fetch_jisubei] 已追加 — {len(jisubei_content.get('entries', []))} 篇")
@@ -160,12 +149,16 @@ def _append_entry(entry: dict) -> None:
     if output_path.exists():
         d = json.loads(output_path.read_text(encoding="utf-8"))
     if "entries" not in d and "content" in d:
-        d["entries"] = [{
-            "title": d.pop("title", ""),
-            "content": d.pop("content", ""),
-            "metadata": d.pop("metadata", {}),
-            "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%S+08:00", time.localtime()),
-        }]
+        d["entries"] = [
+            {
+                "title": d.pop("title", ""),
+                "content": d.pop("content", ""),
+                "metadata": d.pop("metadata", {}),
+                "fetched_at": time.strftime(
+                    "%Y-%m-%dT%H:%M:%S+08:00", time.localtime()
+                ),
+            }
+        ]
     d.setdefault("entries", [])
     entry["source_key"] = source_key
     entry["fetched_at"] = time.strftime("%Y-%m-%dT%H:%M:%S+08:00", time.localtime())
@@ -178,7 +171,9 @@ def _append_entry(entry: dict) -> None:
             d["metadata"] = entry.get("metadata", {})
             output_path.parent.mkdir(parents=True, exist_ok=True)
             tmp = output_path.with_suffix(".tmp")
-            tmp.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+            tmp.write_text(
+                json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
             tmp.replace(output_path)
             return
     d["entries"].append(entry)

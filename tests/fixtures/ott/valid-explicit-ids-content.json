@@ -1,0 +1,14 @@
+{
+  "source_key": "explicit",
+  "title": "Stable",
+  "content": "stable text",
+  "entries": [
+    {
+      "entry_id": "ent_explicit_stable",
+      "revision_id": "rev_explicit_v1",
+      "title": "Stable",
+      "content": "stable text",
+      "fetched_at": "2026-07-03T10:00:00+08:00"
+    }
+  ]
+}
