@@ -1,0 +1,9 @@
+{
+  "protocol": "ott-repo",
+  "version": "1.0",
+  "type": "repository",
+  "repo_id": "bad.example.org",
+  "name": "Mirror missing url",
+  "mirrors": [{ "priority": 1 }],
+  "sources": []
+}

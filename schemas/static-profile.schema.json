@@ -15,6 +15,15 @@
     },
     "adapter_version": {"type": "string"},
     "updated_at": {"type": "string"},
+    "authority_id": {
+      "type": "string",
+      "description": "Core 1.1 additive: stable instance identity. Falls back to endpoint host when absent."
+    },
+    "repo_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Core 1.1 additive: back-pointer to the OTT Repo manifest distributing this instance."
+    },
     "features": {
       "type": "object",
       "required": ["entry_summary", "inline_content", "segmented_content"],

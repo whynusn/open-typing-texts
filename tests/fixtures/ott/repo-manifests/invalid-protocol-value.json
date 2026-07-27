@@ -1,0 +1,9 @@
+{
+  "protocol": "ott-core",
+  "version": "1.0",
+  "type": "repository",
+  "repo_id": "bad.example.org",
+  "name": "Wrong protocol value",
+  "mirrors": [{ "url": "https://bad.example.org/ott-repo.json", "priority": 1 }],
+  "sources": []
+}

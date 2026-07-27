@@ -1,0 +1,15 @@
+{
+  "protocol": "ott-repo",
+  "version": "1.0",
+  "type": "directory",
+  "repo_id": "dir.example.org",
+  "name": "Directory containing non-ref source",
+  "mirrors": [{ "url": "https://dir.example.org/ott-repo.json", "priority": 1 }],
+  "sources": [
+    {
+      "type": "ott-instance",
+      "authority": "sneaky.example.org",
+      "endpoints": [{ "url": "https://sneaky.example.org/ott/", "profile": "static", "priority": 1 }]
+    }
+  ]
+}

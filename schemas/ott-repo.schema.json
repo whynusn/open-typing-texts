@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-typing-texts.local/schemas/ott-repo.schema.json",
+  "title": "OTT Repo v1 Manifest",
+  "description": "Control-plane manifest for subscribing to decentralized text sources. Independently versioned from OTT Core v1.",
+  "type": "object",
+  "required": ["protocol", "version", "type", "repo_id", "name", "mirrors", "sources"],
+  "additionalProperties": true,
+  "properties": {
+    "protocol": { "const": "ott-repo" },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?(-[a-zA-Z0-9]+)?$"
+    },
+    "type": { "enum": ["repository", "directory"] },
+    "repo_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identity: reverse-domain (org.example.texts), key fingerprint (key:ed25519:<24-hex>), or 'local'."
+    },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "maintainer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "homepage": { "type": "string", "format": "uri" }
+      }
+    },
+    "license": { "type": "string" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "mirrors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["url", "priority"],
+        "additionalProperties": false,
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "priority": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "trust": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "signature": { "type": "string", "description": "minisign / ed25519 signature over canonical manifest bytes." },
+        "pubkey": { "type": "string", "description": "ed25519 public key; TOFU-pinned by clients." },
+        "required": {
+          "type": "boolean",
+          "default": false,
+          "description": "Reserved for curated directories. General repos SHOULD keep false."
+        }
+      }
+    },
+    "requires": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ott_core": {
+          "type": "string",
+          "description": "Semver range the repo needs from OTT Core (e.g. '>=1.0')."
+        },
+        "client_features": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional Profile features the client must support."
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": {
+            "enum": ["ott-instance", "ott-rule", "ott-bridge", "repository-ref"]
+          }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "type": { "const": "ott-instance" } } },
+            "then": {
+              "required": ["authority", "endpoints"],
+              "additionalProperties": false,
+              "properties": {
+                "type": { "const": "ott-instance" },
+                "authority": { "type": "string", "minLength": 1 },
+                "label": { "type": "string" },
+                "endpoints": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "required": ["url"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "url": { "type": "string", "format": "uri" },
+                      "profile": { "enum": ["static", "service"], "default": "static" },
+                      "priority": { "type": "integer", "minimum": 1 }
+                    }
+                  }
+                },
+                "tags": { "type": "array", "items": { "type": "string" } },
+                "default_enabled": { "type": "boolean", "default": true }
+              }
+            }
+          },
+          {
+            "if": { "properties": { "type": { "const": "ott-rule" } } },
+            "then": {
+              "required": ["rule_id", "rule"],
+              "additionalProperties": false,
+              "properties": {
+                "type": { "const": "ott-rule" },
+                "rule_id": { "type": "string", "minLength": 1 },
+                "label": { "type": "string" },
+                "rule": {
+                  "type": "object",
+                  "required": ["request", "extract"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": { "type": "string", "default": "json-api" },
+                    "request": {
+                      "type": "object",
+                      "required": ["url"],
+                      "properties": {
+                        "url": { "type": "string", "format": "uri" },
+                        "method": { "enum": ["GET", "POST"], "default": "GET" },
+                        "headers": {
+                          "type": "object",
+                          "additionalProperties": { "type": "string" }
+                        }
+                      }
+                    },
+                    "extract": {
+                      "type": "object",
+                      "description": "JSON path, named regex group, or CSS selector per field."
+                    },
+                    "transform": {
+                      "type": "array",
+                      "items": { "enum": ["trim", "replace", "truncate"] }
+                    },
+                    "schedule": {
+                      "type": "object",
+                      "properties": {
+                        "mode": { "enum": ["manual", "hourly", "daily"] },
+                        "cache_ttl_seconds": { "type": "integer", "minimum": 0 }
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "param": { "type": "string" },
+                        "start": { "type": "integer" },
+                        "step": { "type": "integer" },
+                        "max_pages": { "type": "integer", "minimum": 1 }
+                      }
+                    }
+                  }
+                },
+                "tags": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          {
+            "if": { "properties": { "type": { "const": "ott-bridge" } } },
+            "then": {
+              "required": ["bridge_kind", "endpoint"],
+              "additionalProperties": false,
+              "properties": {
+                "type": { "const": "ott-bridge" },
+                "bridge_kind": { "type": "string", "minLength": 1 },
+                "endpoint": { "type": "string", "format": "uri" },
+                "label": { "type": "string" },
+                "requires_credentials": { "type": "boolean", "default": false },
+                "tags": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          {
+            "if": { "properties": { "type": { "const": "repository-ref" } } },
+            "then": {
+              "required": ["url"],
+              "additionalProperties": false,
+              "properties": {
+                "type": { "const": "repository-ref" },
+                "url": { "type": "string", "format": "uri" },
+                "label": { "type": "string" },
+                "tags": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "directory" } } },
+      "then": {
+        "properties": {
+          "sources": {
+            "type": "array",
+            "items": {
+              "required": ["type"],
+              "properties": {
+                "type": { "const": "repository-ref" }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

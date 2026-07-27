@@ -1,0 +1,11 @@
+{
+  "protocol": "ott-repo",
+  "version": "1.0",
+  "type": "repository",
+  "repo_id": "bad.example.org",
+  "name": "Unknown source type",
+  "mirrors": [{ "url": "https://bad.example.org/ott-repo.json", "priority": 1 }],
+  "sources": [
+    { "type": "ott-unknown", "label": "bad type" }
+  ]
+}

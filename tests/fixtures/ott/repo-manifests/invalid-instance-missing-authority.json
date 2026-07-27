@@ -1,0 +1,14 @@
+{
+  "protocol": "ott-repo",
+  "version": "1.0",
+  "type": "repository",
+  "repo_id": "bad.example.org",
+  "name": "Instance missing authority",
+  "mirrors": [{ "url": "https://bad.example.org/ott-repo.json", "priority": 1 }],
+  "sources": [
+    {
+      "type": "ott-instance",
+      "endpoints": [{ "url": "https://example.org/ott/", "profile": "static", "priority": 1 }]
+    }
+  ]
+}

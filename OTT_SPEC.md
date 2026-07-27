@@ -162,6 +162,20 @@ entries, the detail omits full content and clients read segment text from
 - `content_hash` verifies the current full content or segment content.
 - Clients should key progress as `ott:{authority}:{entry_id}@{revision_id}`.
 
+### Instance Identity (Core 1.1 candidate, additive)
+
+An instance MAY declare an explicit, stable identity independent of its
+endpoint host. These fields are additive; old clients ignore them.
+
+- `authority_id` (optional, string): declared in `ott.json` (Static Profile) and
+  in `GET /ott/v1/capabilities` (Service Profile). When absent, clients fall
+  back to the primary endpoint host. Legal forms: reverse domain
+  (`org.example.texts`), key fingerprint (`key:ed25519:<24-hex>`), or `local`.
+- `repo_url` (optional, string): points back to the OTT Repo manifest that
+  distributes this instance. Enables deep-link-driven repo discovery — an
+  unsubscribed user opening an `ott://` link can be offered to subscribe to the
+  containing repo.
+
 Reference implementations may derive missing `entry_id` values from legacy
 content files, but published content should persist explicit IDs whenever
 possible. `revision_id` changes when the content hash changes.

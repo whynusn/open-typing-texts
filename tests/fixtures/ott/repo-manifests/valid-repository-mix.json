@@ -1,0 +1,63 @@
+{
+  "protocol": "ott-repo",
+  "version": "1.0",
+  "type": "repository",
+  "repo_id": "texts.example.org",
+  "name": "Example Mixed Source Library",
+  "description": "Curated Chinese typing texts (instance + rule + bridge)",
+  "maintainer": { "name": "someone", "homepage": "https://example.org" },
+  "license": "CC-BY-SA-4.0",
+  "updated_at": "2026-08-01T00:00:00+08:00",
+  "mirrors": [
+    { "url": "https://texts.example.org/ott-repo.json", "priority": 1 },
+    { "url": "https://cdn.example.net/user/repo/ott-repo.json", "priority": 2 }
+  ],
+  "trust": {
+    "signature": "minisign:RWQ...",
+    "pubkey": "ed25519:abc123",
+    "required": false
+  },
+  "requires": {
+    "ott_core": ">=1.0",
+    "client_features": ["segmented_content"]
+  },
+  "sources": [
+    {
+      "type": "ott-instance",
+      "authority": "texts.example.org",
+      "label": "Example Static Library",
+      "endpoints": [
+        { "url": "https://texts.example.org/ott/", "profile": "static", "priority": 1 },
+        { "url": "https://mirror.example.net/ott/", "profile": "static", "priority": 2 }
+      ],
+      "tags": ["chinese", "curated"],
+      "default_enabled": true
+    },
+    {
+      "type": "ott-rule",
+      "rule_id": "hitokoto-daily",
+      "label": "Hitokoto Daily",
+      "rule": {
+        "kind": "json-api",
+        "request": {
+          "url": "https://v1.hitokoto.cn/?c=i",
+          "method": "GET",
+          "headers": { "Accept": "application/json" }
+        },
+        "extract": { "title": "$.from", "content": "$.hitokoto" },
+        "transform": ["trim"],
+        "schedule": { "mode": "daily", "cache_ttl_seconds": 86400 },
+        "pagination": { "param": "page", "start": 1, "step": 1, "max_pages": 5 }
+      },
+      "tags": ["quote"]
+    },
+    {
+      "type": "ott-bridge",
+      "bridge_kind": "wenlai",
+      "endpoint": "https://wenlai.example.com/api",
+      "label": "Wenlai Random",
+      "requires_credentials": true,
+      "tags": ["realtime"]
+    }
+  ]
+}

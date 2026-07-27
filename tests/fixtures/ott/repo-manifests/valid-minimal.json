@@ -1,0 +1,11 @@
+{
+  "protocol": "ott-repo",
+  "version": "1.0",
+  "type": "repository",
+  "repo_id": "minimal.example.org",
+  "name": "Minimal Repo",
+  "mirrors": [
+    { "url": "https://minimal.example.org/ott-repo.json", "priority": 1 }
+  ],
+  "sources": []
+}

@@ -1,0 +1,17 @@
+{
+  "protocol": "ott-repo",
+  "version": "1.0",
+  "type": "repository",
+  "repo_id": "bad.example.org",
+  "name": "Rule missing rule_id",
+  "mirrors": [{ "url": "https://bad.example.org/ott-repo.json", "priority": 1 }],
+  "sources": [
+    {
+      "type": "ott-rule",
+      "rule": {
+        "request": { "url": "https://example.org/api" },
+        "extract": { "title": "$.title" }
+      }
+    }
+  ]
+}

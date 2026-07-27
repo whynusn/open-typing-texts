@@ -27,6 +27,23 @@
         "limit": {"type": "integer", "minimum": 1},
         "pages": {"type": "integer", "minimum": 0}
       }
+    },
+    "capabilities": {
+      "type": "object",
+      "required": ["protocol", "version"],
+      "properties": {
+        "protocol": {"const": "ott"},
+        "version": {"type": "string"},
+        "authority_id": {
+          "type": "string",
+          "description": "Core 1.1 additive: stable instance identity."
+        },
+        "repo_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Core 1.1 additive: back-pointer to distributing OTT Repo manifest."
+        }
+      }
     }
   }
 }

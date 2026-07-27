@@ -1,7 +1,8 @@
-# OTT Repo v1 Specification (Draft)
+# OTT Repo v1 Specification
 
-> Status: draft | Scope: decentralized source distribution control plane
+> Status: stable | Scope: decentralized source distribution control plane
 > Companion: `OTT_SPEC.md` (OTT Core v1, stable) — this document changes nothing in Core v1.
+> JSON Schema: [`schemas/ott-repo.schema.json`](../schemas/ott-repo.schema.json) (normative).
 
 OTT Repo v1 defines the **control plane** of the open typing texts ecosystem:
 how clients discover, subscribe to, trust, and refresh collections of text
@@ -18,7 +19,7 @@ negotiation), legado subscriptions (refreshable source lists anyone can host).
 | Name | Current | Meaning |
 |:---|:---|:---|
 | OTT Core | `1.0` | Data model and read-only distribution contract (unchanged) |
-| OTT Repo | `1.0-draft` | Source manifest / subscription contract (this document) |
+| OTT Repo | `1.0` | Source manifest / subscription contract (this document) |
 | Repo manifest file | `ott-repo.json` | Conventional filename; any URL serving the manifest is valid |
 
 ## Concepts
@@ -223,72 +224,13 @@ arbitrary code execution surface.
 - **Incompatibility**: unmet `requires` marks the repo incompatible with a
   human-readable reason; no silent partial activation.
 
-## JSON Schema (draft 2020-12, sketch)
+## JSON Schema
 
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://open-typing-texts/schemas/ott-repo.schema.json",
-  "title": "OTT Repo Manifest",
-  "type": "object",
-  "required": ["protocol", "version", "type", "repo_id", "name", "mirrors", "sources"],
-  "properties": {
-    "protocol": { "const": "ott-repo" },
-    "version": { "type": "string" },
-    "type": { "enum": ["repository", "directory"] },
-    "repo_id": { "type": "string", "minLength": 1 },
-    "name": { "type": "string", "minLength": 1 },
-    "description": { "type": "string" },
-    "maintainer": {
-      "type": "object",
-      "properties": { "name": { "type": "string" }, "homepage": { "type": "string" } }
-    },
-    "license": { "type": "string" },
-    "updated_at": { "type": "string", "format": "date-time" },
-    "mirrors": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "required": ["url", "priority"],
-        "properties": {
-          "url": { "type": "string", "format": "uri" },
-          "priority": { "type": "integer", "minimum": 1 }
-        }
-      }
-    },
-    "trust": {
-      "type": "object",
-      "properties": {
-        "signature": { "type": "string" },
-        "pubkey": { "type": "string" },
-        "required": { "type": "boolean", "default": false }
-      }
-    },
-    "requires": {
-      "type": "object",
-      "properties": {
-        "ott_core": { "type": "string" },
-        "client_features": { "type": "array", "items": { "type": "string" } }
-      }
-    },
-    "sources": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["type"],
-        "properties": {
-          "type": { "enum": ["ott-instance", "ott-rule", "ott-bridge", "repository-ref"] }
-        }
-      }
-    }
-  }
-}
-```
-
-The full schema (per-source-type `allOf` refinements) and canonical fixtures
-ship with Repo v1 final, extending the existing compatibility pack mechanism
-(`tests/fixtures/ott/`).
+The normative schema lives in [`schemas/ott-repo.schema.json`](../schemas/ott-repo.schema.json)
+(draft 2020-12). It includes per-source-type `allOf` / `if-then` refinements that
+this prose summary does not repeat. Clients SHOULD validate manifests against
+this schema before caching. Canonical fixtures live in
+[`tests/fixtures/ott/repo-manifests/`](../../tests/fixtures/ott/repo-manifests/).
 
 ## Security Considerations
 
