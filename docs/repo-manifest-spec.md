@@ -57,8 +57,8 @@ Directory (optional)        repo-of-repos; discovery layer; never nested
     { "url": "https://cdn.example.net/user/repo/ott-repo.json", "priority": 2 }
   ],
   "trust": {
-    "signature": "minisign:...",
-    "pubkey": "ed25519:...",
+    "signature": "ed25519:<128 hex>",
+    "pubkey": "ed25519:<64 hex>",
     "required": false
   },
   "requires": {
@@ -190,9 +190,18 @@ instance, read `repo_url`, and offer to subscribe to the containing repo.
 
 ## Trust
 
-- Signatures are **optional** and use minisign / ed25519 over the canonical
-  manifest bytes. `trust.required: true` is reserved for curated directories
-  and SHOULD NOT be used by general repos.
+- Signatures are **optional** and use bare Ed25519 over the canonical manifest
+  bytes. The signature is `ed25519:<128 hex>` or bare 128 hex; the pubkey is
+  `ed25519:<64 hex>` or bare 64 hex. minisign is not supported.
+- **Canonical manifest bytes** (normative; must match the reference client
+  byte-for-byte): the manifest with the `trust` key removed, serialized as
+  UTF-8 JSON with keys sorted bytewise and no whitespace between tokens
+  (`json.dumps(canonical, sort_keys=True, ensure_ascii=False,
+  separators=(",", ":"))`), no trailing commas. Signers sign exactly these
+  bytes and clients verify exactly these bytes; any other serialization fails
+  verification.
+- `trust.required: true` is reserved for curated directories and SHOULD NOT be
+  used by general repos.
 - Clients pin the pubkey on first use (TOFU) and MUST surface an explicit
   warning when the key changes.
 - Signature status is a UI badge (`verified` / `unverified` / `failed`), never

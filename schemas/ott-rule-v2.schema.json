@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-typing-texts.local/schemas/ott-rule-v2.schema.json",
+  "title": "OTT Rule v2 (DSL)",
+  "description": "Declarative fetch rule for the restricted L1.5 DSL engine. Validates the 'rule' field of an ott-rule source in a Repo v1 manifest; each source item is validated independently, so mixed repos (instance + rule + bridge, multiple rule sources) work unchanged. Superset of L1: rules with only legacy fields (request + extract + transform, no steps) remain valid; rules with 'steps' use the sequential DSL pipeline. Single rules MUST NOT mix 'transform' with 'steps'.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request"],
+  "properties": {
+    "kind": { "type": "string", "default": "json-api" },
+    "request": {
+      "type": "object",
+      "required": ["url"],
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string", "format": "uri", "pattern": "^https?://", "description": "Public http(s) target only; file:/loopback/private/reserved ranges are rejected by the interpreter." },
+        "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"], "default": "GET" },
+        "headers": { "type": "object", "additionalProperties": { "type": "string" }, "description": "HTTP headers; Content-Type etc. must be declared explicitly (no auto JSON header)." },
+        "body": {
+          "description": "Literal request body, or null when constructed via 'steps'. str passes through, dict/list are JSON-serialized, int/bool are stringified; float and other types are rejected. When 'steps' is present and body is null, the first step is not prepended with the body.",
+          "oneOf": [
+            { "type": ["string", "integer", "boolean", "null"] },
+            { "type": "array" },
+            { "type": "object" }
+          ]
+        }
+      }
+    },
+    "extract": {
+      "type": "object",
+      "description": "JSON path, named regex group, or CSS selector per field (e.g. {\"title\": \"$.msg.a_name\", \"content\": \"$.msg.0\"})."
+    },
+    "transform": {
+      "type": "array",
+      "items": { "enum": ["trim", "replace", "truncate"] },
+      "description": "L1 fixed pipeline; MUST NOT coexist with 'steps'."
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "description": "Sequential DSL pipeline; each step output becomes the next step's first arg unless body is null. First step receives request.body. Max 8 steps (MAX_STEPS); engine enforces MAX_CALLS=1000 and MAX_DEPTH=32 at runtime.",
+      "items": {
+        "type": "object",
+        "required": ["fn"],
+        "additionalProperties": false,
+        "properties": {
+          "fn": {
+            "enum": [
+              "str", "int", "bool", "len", "if", "eq", "not",
+              "add", "sub", "mul", "div", "mod",
+              "bit_and", "bit_or", "bit_xor", "bit_shift",
+              "now_unix", "now_iso", "random_int",
+              "regex_extract", "regex_replace",
+              "base64_encode", "base64_decode",
+              "url_encode", "url_decode",
+              "hex_encode", "hex_decode",
+              "utf8_encode", "utf8_decode",
+              "json_encode", "json_decode",
+              "dict_get", "list_get", "list_len", "list_join",
+              "url_join", "url_query", "concat",
+              "md5", "sha1", "sha256", "hmac_sha256",
+              "aes_cbc_encrypt", "aes_cbc_decrypt", "xor"
+            ],
+            "description": "Whitelisted pure primitive; unknown fns are rejected."
+          },
+          "args": {
+            "type": "array",
+            "maxItems": 32,
+            "description": "Literal values, nested expression trees, or {\"ref\": \"body\"} to reference the request.body literal. No float type; bytes are expressed via utf8_encode/hex_decode etc.",
+            "items": {
+              "oneOf": [
+                { "type": ["string", "integer", "boolean", "null"] },
+                { "type": "array" },
+                { "type": "object", "not": { "required": ["ref"] } },
+                {
+                  "type": "object",
+                  "required": ["ref"],
+                  "additionalProperties": false,
+                  "properties": { "ref": { "const": "body" } }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "network": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Domain whitelist (subdomains match); enforced at declaration time - a URL outside the whitelist rejects the whole rule. When absent, the baseline validate_url policy applies."
+        }
+      }
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_api_level": { "type": "integer", "minimum": 0, "description": "Client API level below this marks the rule incompatible and skips it." }
+      }
+    },
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["manual", "hourly", "daily"] },
+        "cache_ttl_seconds": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "pagination": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "param": { "type": "string" },
+        "start": { "type": "integer" },
+        "step": { "type": "integer" },
+        "max_pages": { "type": "integer", "minimum": 1 }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "required": ["steps"] },
+      "then": { "not": { "required": ["transform"] } }
+    }
+  ]
+}

@@ -3,6 +3,7 @@
   "$id": "https://open-typing-texts.local/schemas/ott-repo.schema.json",
   "title": "OTT Repo v1 Manifest",
   "description": "Control-plane manifest for subscribing to decentralized text sources. Independently versioned from OTT Core v1.",
+  "$comment": "Canonical manifest bytes (normative): the manifest with the 'trust' key removed, serialized as UTF-8 JSON, keys sorted bytewise, no whitespace between tokens (separators=(\",\", \":\")), no trailing commas. Signature: ed25519:<128 hex> or bare 128 hex. Pubkey: ed25519:<64 hex> or bare 64 hex. minisign is not supported.",
   "type": "object",
   "required": ["protocol", "version", "type", "repo_id", "name", "mirrors", "sources"],
   "additionalProperties": true,
@@ -47,8 +48,8 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "signature": { "type": "string", "description": "minisign / ed25519 signature over canonical manifest bytes." },
-        "pubkey": { "type": "string", "description": "ed25519 public key; TOFU-pinned by clients." },
+        "signature": { "type": "string", "description": "ed25519 signature (ed25519:<128 hex> or bare 128 hex) over canonical manifest bytes (manifest minus trust key, UTF-8, sort_keys, no whitespace)." },
+        "pubkey": { "type": "string", "description": "ed25519 public key (ed25519:<64 hex> or bare 64 hex); TOFU-pinned by clients." },
         "required": {
           "type": "boolean",
           "default": false,

@@ -5,21 +5,32 @@
   "repo_id": "texts.example.org",
   "name": "Example Mixed Source Library",
   "description": "Curated Chinese typing texts (instance + rule + bridge)",
-  "maintainer": { "name": "someone", "homepage": "https://example.org" },
+  "maintainer": {
+    "name": "someone",
+    "homepage": "https://example.org"
+  },
   "license": "CC-BY-SA-4.0",
   "updated_at": "2026-08-01T00:00:00+08:00",
   "mirrors": [
-    { "url": "https://texts.example.org/ott-repo.json", "priority": 1 },
-    { "url": "https://cdn.example.net/user/repo/ott-repo.json", "priority": 2 }
+    {
+      "url": "https://texts.example.org/ott-repo.json",
+      "priority": 1
+    },
+    {
+      "url": "https://cdn.example.net/user/repo/ott-repo.json",
+      "priority": 2
+    }
   ],
   "trust": {
-    "signature": "minisign:RWQ...",
-    "pubkey": "ed25519:abc123",
+    "signature": "ed25519:2b40dbd22f674a3c87fda912349045ceb042923ec638c40838d9c1636be540aa9a049905fef137a0dd17961aa965ecb0b3ca346f862dfe213ee2428a8cca6700",
+    "pubkey": "ed25519:9680a1476a3644203afa4cc2a1010ff411358761ce94df516027c199dbb5291c",
     "required": false
   },
   "requires": {
     "ott_core": ">=1.0",
-    "client_features": ["segmented_content"]
+    "client_features": [
+      "segmented_content"
+    ]
   },
   "sources": [
     {
@@ -27,10 +38,21 @@
       "authority": "texts.example.org",
       "label": "Example Static Library",
       "endpoints": [
-        { "url": "https://texts.example.org/ott/", "profile": "static", "priority": 1 },
-        { "url": "https://mirror.example.net/ott/", "profile": "static", "priority": 2 }
+        {
+          "url": "https://texts.example.org/ott/",
+          "profile": "static",
+          "priority": 1
+        },
+        {
+          "url": "https://mirror.example.net/ott/",
+          "profile": "static",
+          "priority": 2
+        }
       ],
-      "tags": ["chinese", "curated"],
+      "tags": [
+        "chinese",
+        "curated"
+      ],
       "default_enabled": true
     },
     {
@@ -42,14 +64,31 @@
         "request": {
           "url": "https://v1.hitokoto.cn/?c=i",
           "method": "GET",
-          "headers": { "Accept": "application/json" }
+          "headers": {
+            "Accept": "application/json"
+          }
         },
-        "extract": { "title": "$.from", "content": "$.hitokoto" },
-        "transform": ["trim"],
-        "schedule": { "mode": "daily", "cache_ttl_seconds": 86400 },
-        "pagination": { "param": "page", "start": 1, "step": 1, "max_pages": 5 }
+        "extract": {
+          "title": "$.from",
+          "content": "$.hitokoto"
+        },
+        "transform": [
+          "trim"
+        ],
+        "schedule": {
+          "mode": "daily",
+          "cache_ttl_seconds": 86400
+        },
+        "pagination": {
+          "param": "page",
+          "start": 1,
+          "step": 1,
+          "max_pages": 5
+        }
       },
-      "tags": ["quote"]
+      "tags": [
+        "quote"
+      ]
     },
     {
       "type": "ott-bridge",
@@ -57,7 +96,9 @@
       "endpoint": "https://wenlai.example.com/api",
       "label": "Wenlai Random",
       "requires_credentials": true,
-      "tags": ["realtime"]
+      "tags": [
+        "realtime"
+      ]
     }
   ]
 }
