@@ -1,17 +1,19 @@
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
+
 from . import __version__
+from . import server_state as _state
 from .server_admin_entries import AdminEntryRoutes
 from .server_admin_script_mutations import AdminScriptMutationRoutes
 from .server_admin_scripts import AdminScriptReadRunRoutes
 from .server_admin_sources import AdminSourceRoutes
 from .server_http import err as _err
 from .server_ott_routes import OttReadOnlyRoutes
-from . import server_state as _state
+from .server_repo_routes import RepoManifestRoutes
 from .server_static_routes import StaticFileRoutes
 
 _cache_invalidate = _state.cache_invalidate
@@ -27,6 +29,7 @@ _validate_ott_json = _state.validate_ott_json
 class OttHandler(
     OttReadOnlyRoutes,
     StaticFileRoutes,
+    RepoManifestRoutes,
     AdminSourceRoutes,
     AdminScriptReadRunRoutes,
     AdminScriptMutationRoutes,
@@ -89,6 +92,10 @@ class OttHandler(
         )
         if m and method == "GET":
             return self._ott_segment(m.group(1), m.group(2), int(m.group(3)))
+
+        # ── OTT Repo v1 control plane (self-describing manifest) ──
+        if method == "GET" and path == "/ott-repo.json":
+            return self._ott_repo_manifest()
 
         # ── Optional Admin Profile + legacy /api alias ───────
         admin_path = None
@@ -239,8 +246,7 @@ class OttHandler(
     def _is_admin_request_path(self, path):
         return (
             path == "/api"
-            or path.startswith("/api/")
-            or path.startswith("/ott-admin/v1/")
+            or path.startswith(("/api/", "/ott-admin/v1/"))
         )
 
     def _admin_origin_allowed(self):

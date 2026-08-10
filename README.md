@@ -35,6 +35,7 @@ OTT Core v1 只定义客户端只读分发协议：source、entry summary、entr
 | [LEGACY_SPEC.md](LEGACY_SPEC.md) | 旧 `registry_index.json` / `content/{source_key}.json` 兼容格式 |
 | [COMPATIBILITY.md](COMPATIBILITY.md) | 兼容矩阵与 canonical fixture pack |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 脚本贡献与本地验证流程 |
+| [docs/adapter-package.md](docs/adapter-package.md) | OTT 适配器包 v1 格式与签名规范 |
 | [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) | 发布前兼容与 CI 边界检查 |
 
 `registry_index.json version: 2` 是历史 adapter index schema，不是 OTT v2。本仓库当前公开协议版本是 OTT Core `1.0`，HTTP 服务路径为 `/ott/v1`。
