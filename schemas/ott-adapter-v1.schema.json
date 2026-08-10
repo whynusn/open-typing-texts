@@ -1,5 +1,5 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://open-typing-texts.local/schemas/ott-adapter-v1.schema.json",
   "title": "OTT Adapter Package v1",
   "description": "适配器包清单（adapter.json）权威 schema。ADR-011 Phase 2.1。",
