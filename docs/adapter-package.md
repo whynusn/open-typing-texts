@@ -62,4 +62,6 @@ canonical_bytes = json.dumps(
 | 仓库内适配器包（manifest source 引用 `adapter_id`） | 🔲 2.2 包内文件拉取 + 2.4 CI 流水线产出 |
 | 签名门槛（L3 仅 verified 仓库执行） | ✅ 2.3 已落地（TOFU 流程见 `adapter-signing.md`） |
 
-> 跨仓同步：open-typing-texts 仓 spec 对齐（canonical JSON / minisign 移除）为待确认项，见 ADR-011 待外部确认。
+> 跨仓同步：open-typing-texts 仓 spec 已对齐（canonical JSON / minisign 移除 /
+> `ott-script` 源类型 / L3 签名门槛，2026-08-10 批次）。本文件为 typetype 侧实现说明，
+> 协议权威见 `repo-manifest-spec.md` §Source Types `ott-script`。

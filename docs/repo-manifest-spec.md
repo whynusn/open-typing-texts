@@ -19,15 +19,20 @@ negotiation), legado subscriptions (refreshable source lists anyone can host).
 | Name | Current | Meaning |
 |:---|:---|:---|
 | OTT Core | `1.0` | Data model and read-only distribution contract (unchanged) |
-| OTT Repo | `1.0` | Source manifest / subscription contract (this document) |
+| OTT Repo | `1.1` | Source manifest / subscription contract (this document) |
 | Repo manifest file | `ott-repo.json` | Conventional filename; any URL serving the manifest is valid |
+
+> v1.0 → v1.1 (2026-08-10): additive. Adds the `ott-script` source type (L3
+> fetch scripts distributed under a signature gate, see §Source Types /
+> §Trust). No v1.0 manifest becomes invalid; clients that do not execute L3
+> scripts simply ignore `ott-script` sources.
 
 ## Concepts
 
 ```text
 Directory (optional)        repo-of-repos; discovery layer; never nested
   └─ Repository             a subscribable manifest listing sources
-       └─ Source            ott-instance | ott-rule | ott-bridge
+       └─ Source            ott-instance | ott-rule | ott-bridge | ott-script
             └─ Entry        OTT Core v1 data plane
 ```
 
@@ -36,8 +41,10 @@ Directory (optional)        repo-of-repos; discovery layer; never nested
 - A **Directory** is a manifest with `type: "directory"` whose `sources` list
   contains only `repository-ref` entries. Directories MUST NOT reference other
   directories.
-- Every layer is pure data. No executable content is ever distributed through
-  Repo v1.
+- L0/L1/L2 sources are pure data: declarative rules and endpoint pointers, no
+  executable content. The only executable content distributed through Repo v1
+  is `ott-script` (L3), which is gated by a mandatory signature check and a
+  restricted sandbox (see §Source Types `ott-script` and §Trust).
 
 ## Repo Manifest
 
@@ -154,6 +161,38 @@ A real-time API bridge (e.g. an authenticated "random text" service).
   are entered by the user and stored only in the local OS keyring; Repo v1
   manifests MUST NOT carry credentials.
 
+### `ott-script`
+
+A fetch script (e.g. Python) distributed through Repo v1 and executed in the
+client's restricted sandbox (L3). Unlike L0/L1/L2 — which are pure data —
+`ott-script` carries executable code, so it is the only source type subject to
+a **mandatory signature gate**: clients MUST NOT execute an `ott-script` from a
+repo whose `trust_state` is not `verified` (see §Trust).
+
+- `url` (required): public `http(s)` URL of the script payload (`.py`).
+- `checksum` (optional): `sha256:<64 hex>` of the payload; clients verify before
+  execution and reject on mismatch.
+- `permissions` (optional): capability allowlist enforced by the sandbox.
+  - `network` (optional): list of hostnames the script may contact; when
+    declared it is enforced at runtime, when absent the client falls back to
+    its URL validation policy. Subdomain matching applies.
+  - `secrets` (optional): list of keyring credential names the script may read
+    (e.g. `"wenlai_token"`); credentials are entered by the user and stored only
+    in the local OS keyring, never in the manifest.
+- `rights.min_api_level` (optional): the client API level required to run this
+  script; if the client's `CLIENT_API_LEVEL` is lower, the source is skipped as
+  incompatible.
+- Fetched items become client-local entries under authority
+  `script`, so progress keys remain uniform
+  (`ott:script:{entry_id}@{revision_id}`).
+
+Execution MUST happen in a restricted sandbox: subprocess isolation with
+resource limits (memory/CPU/process count/file write budget) plus a filesystem
+allowlist (Landlock or equivalent on Linux). Scripts escape only into a
+resource-bounded, network-visible subprocess — never into the client's own
+process. A client that cannot provide such a sandbox (e.g. Windows without
+job-object/AppContainer equivalents) SHOULD disable L3 by default.
+
 ### `repository-ref` (directories only)
 
 ```json
@@ -204,8 +243,13 @@ instance, read `repo_url`, and offer to subscribe to the containing repo.
   used by general repos.
 - Clients pin the pubkey on first use (TOFU) and MUST surface an explicit
   warning when the key changes.
-- Signature status is a UI badge (`verified` / `unverified` / `failed`), never
-  an admission gate.
+- For L0/L1/L2 sources, signature status is a UI badge (`verified` /
+  `unverified` / `failed`), never an admission gate.
+- For `ott-script` (L3) sources the signature **is** an admission gate: a repo
+  whose `trust_state` is not `verified` MUST NOT have its scripts executed
+  (see §Source Types `ott-script`). A fresh signature transitions the repo to
+  `pending`; the user explicitly confirms trust before it becomes `verified`.
+  Key rotation resets the repo to `pending` for re-confirmation.
 - Content integrity within an instance remains Core v1 `content_hash`
   (sha256); Repo v1 adds no content-level duties.
 
@@ -216,10 +260,10 @@ Capability tiers (informative, enforced by clients):
 | L0 | OTT data instance | none | allowed |
 | L1 | Declarative rule | restricted interpreter | allowed |
 | L2 | Bridge (real-time API) | protocol adapter, local credentials | allowed |
-| L3 | Fetch script (e.g. Python) | full code execution | **MUST NOT be distributed via Repo v1**; local adapter `scripts/` only |
+| L3 | Fetch script (e.g. Python) | restricted subprocess sandbox | allowed, signature-gated (`trust_state=verified` required) |
 
-Invariant: nothing a client obtains through network subscription has an
-arbitrary code execution surface.
+Invariant: nothing a client obtains through network subscription executes
+outside a signature-gated, restricted sandbox.
 
 ## Client Behavior
 
@@ -244,7 +288,10 @@ this schema before caching. Canonical fixtures live in
 ## Security Considerations
 
 - A malicious repo can only supply data: no code execution at L0/L1, no
-  credential access at L2, and L3 is undistributable by rule.
+  credential access at L2. L3 scripts execute only under a signature gate
+  (`trust_state=verified`) inside a restricted subprocess sandbox; the
+  worst-case escape is a resource-bounded, network-visible child process, not
+  the client's own process.
 - Rule URLs are restricted to public http(s) targets to prevent internal
   network probing.
 - Authority collisions between unsigned repos are displayed side-by-side,
@@ -259,8 +306,8 @@ this schema before caching. Canonical fixtures live in
 | Entry/segment/revision/hash model | Core v1 (unchanged) |
 | Static/Service distribution | Core v1 (unchanged) |
 | Optional `authority_id` / `repo_url` instance fields | Core 1.1 candidate, additive |
-| Source discovery, subscription, mirrors, trust, directories | Repo v1 (this document) |
-| Scripts, storage, admin APIs | Reference adapter (unchanged, out of protocol) |
+| Source discovery, subscription, mirrors, trust, directories, signature-gated L3 scripts | Repo v1 (this document) |
+| Script authoring, storage, admin APIs | Reference adapter (unchanged, out of protocol) |
 
 ## Future Work (explicitly out of v1)
 

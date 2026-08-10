@@ -79,7 +79,7 @@
         "required": ["type"],
         "properties": {
           "type": {
-            "enum": ["ott-instance", "ott-rule", "ott-bridge", "repository-ref"]
+            "enum": ["ott-instance", "ott-rule", "ott-bridge", "ott-script", "repository-ref"]
           }
         },
         "allOf": [
@@ -179,6 +179,35 @@
                 "endpoint": { "type": "string", "format": "uri" },
                 "label": { "type": "string" },
                 "requires_credentials": { "type": "boolean", "default": false },
+                "tags": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          {
+            "if": { "properties": { "type": { "const": "ott-script" } } },
+            "then": {
+              "required": ["url"],
+              "additionalProperties": false,
+              "properties": {
+                "type": { "const": "ott-script" },
+                "url": { "type": "string", "format": "uri", "pattern": "^https?://", "description": "Public http(s) URL of the script payload (.py). L3 executes only when the repo trust_state is verified (signature gate)." },
+                "label": { "type": "string" },
+                "checksum": { "type": "string", "pattern": "^sha256:[0-9a-fA-F]{64}$", "description": "sha256:<64 hex> of the payload; verified before execution." },
+                "permissions": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "network": { "type": "array", "items": { "type": "string" }, "description": "Hostname allowlist (subdomain match); enforced at runtime when declared." },
+                    "secrets": { "type": "array", "items": { "type": "string" }, "description": "Keyring credential names the script may read; never carried in the manifest." }
+                  }
+                },
+                "rights": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "min_api_level": { "type": "integer", "minimum": 1, "description": "Client API level required; lower clients skip this source as incompatible." }
+                  }
+                },
                 "tags": { "type": "array", "items": { "type": "string" } }
               }
             }
