@@ -25,6 +25,7 @@ VALID_FIXTURES = [
     "valid-minimal.json",
     "valid-directory.json",
     "valid-repository-mix.json",
+    "valid-script.json",
 ]
 
 INVALID_FIXTURES = [
@@ -40,6 +41,8 @@ INVALID_FIXTURES = [
     "invalid-rule-missing-rule-id.json",
     "invalid-bridge-missing-endpoint.json",
     "invalid-directory-contains-non-ref.json",
+    "invalid-script-missing-url.json",
+    "invalid-script-non-https.json",
 ]
 
 
@@ -57,15 +60,23 @@ class RepoManifestSchemaTest(unittest.TestCase):
                 jsonschema.validate(data, self.schema)
 
     def test_valid_minimal_has_required_fields(self) -> None:
-        data = json.loads(
-            (FIXTURES / "valid-minimal.json").read_text(encoding="utf-8")
-        )
-        for field in ("protocol", "version", "type", "repo_id", "name", "mirrors", "sources"):
+        data = json.loads((FIXTURES / "valid-minimal.json").read_text(encoding="utf-8"))
+        for field in (
+            "protocol",
+            "version",
+            "type",
+            "repo_id",
+            "name",
+            "mirrors",
+            "sources",
+        ):
             self.assertIn(field, data)
         self.assertEqual(data["protocol"], "ott-repo")
         self.assertEqual(data["type"], "repository")
         self.assertEqual(len(data["mirrors"]), 1)
-        self.assertEqual(data["mirrors"][0]["url"], "https://minimal.example.org/ott-repo.json")
+        self.assertEqual(
+            data["mirrors"][0]["url"], "https://minimal.example.org/ott-repo.json"
+        )
 
     def test_valid_directory_allows_only_repository_refs(self) -> None:
         data = json.loads(
@@ -75,12 +86,14 @@ class RepoManifestSchemaTest(unittest.TestCase):
         for src in data["sources"]:
             self.assertEqual(src["type"], "repository-ref")
 
-    def test_valid_mix_has_all_three_source_types(self) -> None:
+    def test_valid_mix_has_all_source_types(self) -> None:
         data = json.loads(
             (FIXTURES / "valid-repository-mix.json").read_text(encoding="utf-8")
         )
         types = {s["type"] for s in data["sources"]}
-        self.assertEqual(types, {"ott-instance", "ott-rule", "ott-bridge"})
+        self.assertEqual(
+            types, {"ott-instance", "ott-rule", "ott-bridge", "ott-script"}
+        )
 
     # ---- invalid fixtures must fail schema ----
 
@@ -115,7 +128,10 @@ class RepoManifestSchemaTest(unittest.TestCase):
     def test_schema_instance_requires_authority_and_endpoints(self) -> None:
         """Per-source-type refinement: ott-instance needs authority + endpoints."""
         for clause in self.schema["properties"]["sources"]["items"]["allOf"]:
-            if clause.get("if", {}).get("properties", {}).get("type", {}).get("const") == "ott-instance":
+            if (
+                clause.get("if", {}).get("properties", {}).get("type", {}).get("const")
+                == "ott-instance"
+            ):
                 self.assertIn("authority", clause["then"]["required"])
                 self.assertIn("endpoints", clause["then"]["required"])
                 self.assertEqual(
@@ -128,7 +144,10 @@ class RepoManifestSchemaTest(unittest.TestCase):
     def test_schema_directory_ref_only(self) -> None:
         """repository-ref requires url and forbids authority/endpoints."""
         for clause in self.schema["properties"]["sources"]["items"]["allOf"]:
-            if clause.get("if", {}).get("properties", {}).get("type", {}).get("const") == "repository-ref":
+            if (
+                clause.get("if", {}).get("properties", {}).get("type", {}).get("const")
+                == "repository-ref"
+            ):
                 self.assertIn("url", clause["then"]["required"])
                 break
         else:
@@ -136,7 +155,10 @@ class RepoManifestSchemaTest(unittest.TestCase):
 
     def test_schema_rule_requires_rule_id(self) -> None:
         for clause in self.schema["properties"]["sources"]["items"]["allOf"]:
-            if clause.get("if", {}).get("properties", {}).get("type", {}).get("const") == "ott-rule":
+            if (
+                clause.get("if", {}).get("properties", {}).get("type", {}).get("const")
+                == "ott-rule"
+            ):
                 self.assertIn("rule_id", clause["then"]["required"])
                 self.assertIn("rule", clause["then"]["required"])
                 break
@@ -145,12 +167,30 @@ class RepoManifestSchemaTest(unittest.TestCase):
 
     def test_schema_bridge_requires_kind_and_endpoint(self) -> None:
         for clause in self.schema["properties"]["sources"]["items"]["allOf"]:
-            if clause.get("if", {}).get("properties", {}).get("type", {}).get("const") == "ott-bridge":
+            if (
+                clause.get("if", {}).get("properties", {}).get("type", {}).get("const")
+                == "ott-bridge"
+            ):
                 self.assertIn("bridge_kind", clause["then"]["required"])
                 self.assertIn("endpoint", clause["then"]["required"])
                 break
         else:
             self.fail("Missing ott-bridge allOf refinement in schema")
+
+    def test_schema_script_requires_https_url(self) -> None:
+        """ott-script requires a public https url; executes only under L3 gate."""
+        for clause in self.schema["properties"]["sources"]["items"]["allOf"]:
+            if (
+                clause.get("if", {}).get("properties", {}).get("type", {}).get("const")
+                == "ott-script"
+            ):
+                self.assertIn("url", clause["then"]["required"])
+                self.assertEqual(
+                    clause["then"]["properties"]["url"]["pattern"], "^https?://"
+                )
+                break
+        else:
+            self.fail("Missing ott-script allOf refinement in schema")
 
 
 if __name__ == "__main__":

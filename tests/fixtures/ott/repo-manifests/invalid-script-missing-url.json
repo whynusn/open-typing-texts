@@ -1,0 +1,14 @@
+{
+  "protocol": "ott-repo",
+  "version": "1.1",
+  "type": "repository",
+  "repo_id": "bad.example.org",
+  "name": "Script missing url",
+  "mirrors": [{ "url": "https://bad.example.org/ott-repo.json", "priority": 1 }],
+  "sources": [
+    {
+      "type": "ott-script",
+      "label": "No url"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "protocol": "ott-repo",
+  "version": "1.1",
+  "type": "repository",
+  "repo_id": "script.example.org",
+  "name": "Script Source Repo",
+  "description": "L3 script source (signature-gated execution)",
+  "mirrors": [
+    { "url": "https://script.example.org/ott-repo.json", "priority": 1 }
+  ],
+  "sources": [
+    {
+      "type": "ott-script",
+      "url": "https://script.example.org/scripts/fetch.py",
+      "label": "Example Script",
+      "checksum": "sha256:ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12",
+      "permissions": {
+        "network": ["api.example.org"],
+        "secrets": ["wenlai_token"]
+      },
+      "rights": {
+        "min_api_level": 2
+      },
+      "tags": ["chinese"],
+      "default_enabled": true
+    }
+  ]
+}

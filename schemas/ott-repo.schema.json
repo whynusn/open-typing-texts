@@ -192,6 +192,7 @@
                 "type": { "const": "ott-script" },
                 "url": { "type": "string", "format": "uri", "pattern": "^https?://", "description": "Public http(s) URL of the script payload (.py). L3 executes only when the repo trust_state is verified (signature gate)." },
                 "label": { "type": "string" },
+                "default_enabled": { "type": "boolean", "default": true },
                 "checksum": { "type": "string", "pattern": "^sha256:[0-9a-fA-F]{64}$", "description": "sha256:<64 hex> of the payload; verified before execution." },
                 "permissions": {
                   "type": "object",

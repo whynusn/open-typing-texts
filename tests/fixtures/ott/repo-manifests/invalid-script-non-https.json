@@ -1,0 +1,15 @@
+{
+  "protocol": "ott-repo",
+  "version": "1.1",
+  "type": "repository",
+  "repo_id": "bad.example.org",
+  "name": "Script non-https url",
+  "mirrors": [{ "url": "https://bad.example.org/ott-repo.json", "priority": 1 }],
+  "sources": [
+    {
+      "type": "ott-script",
+      "url": "ftp://bad.example.org/scripts/fetch.py",
+      "label": "Non-https"
+    }
+  ]
+}
