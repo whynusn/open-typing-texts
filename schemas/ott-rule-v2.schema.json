@@ -101,7 +101,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "min_api_level": { "type": "integer", "minimum": 0, "description": "Client API level below this marks the rule incompatible and skips it." }
+        "min_api_level": { "type": "integer", "minimum": 1, "description": "Client API level below this marks the rule incompatible and skips it." }
       }
     },
     "schedule": {

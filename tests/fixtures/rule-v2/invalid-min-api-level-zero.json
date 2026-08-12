@@ -1,0 +1,13 @@
+{
+  "kind": "json-api",
+  "request": {
+    "url": "https://example.com/api",
+    "method": "GET"
+  },
+  "extract": { "title": "$.title", "content": "$.content" },
+  "steps": [
+    { "fn": "concat", "args": ["a", "b"] }
+  ],
+  "permissions": { "network": ["allowed.example.com"] },
+  "rights": { "min_api_level": 0 }
+}

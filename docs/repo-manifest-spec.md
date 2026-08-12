@@ -25,7 +25,15 @@ negotiation), legado subscriptions (refreshable source lists anyone can host).
 > v1.0 → v1.1 (2026-08-10): additive. Adds the `ott-script` source type (L3
 > fetch scripts distributed under a signature gate, see §Source Types /
 > §Trust). No v1.0 manifest becomes invalid; clients that do not execute L3
-> scripts simply ignore `ott-script` sources.
+> scripts simply ignore `ott-script` sources. v1.1 also folds the L1.5 DSL
+> rule fields (`steps` / `permissions` / `rights` / `request.body`) into the
+> `ott-rule` source definition (see §Source Types `ott-rule`); L1 rules
+> written against v1.0 remain valid.
+>
+> New manifests SHOULD declare `"version": "1.1"`; the schema accepts any
+> valid semver, so a `1.0` manifest is still legal. The minimum supported
+> Repo contract version is `1.0` (a `1.1` client reads `1.0` manifests), and
+> the maximum is the schema's `ott-script` capability (`1.1`).
 
 ## Concepts
 
@@ -51,7 +59,7 @@ Directory (optional)        repo-of-repos; discovery layer; never nested
 ```json
 {
   "protocol": "ott-repo",
-  "version": "1.0",
+  "version": "1.1",
   "type": "repository",
   "repo_id": "texts.example.org",
   "name": "Example Chinese Library",
@@ -151,6 +159,28 @@ Interpreter constraints (MUST):
   `rule:{repo_id}:{rule_id}`, so progress keys remain uniform
   (`ott:rule:{repo_id}:{rule_id}:{entry_id}@{revision_id}`).
 
+#### L1.5: DSL rule fields (v1.1)
+
+Rules MAY add the L1.5 DSL pipeline (`steps`) for flows a fixed L1 rule
+cannot express (encryption, encoding, dynamic request bodies). The full
+definition lives in [`schemas/ott-rule-v2.schema.json`](../schemas/ott-rule-v2.schema.json).
+
+- `steps` (max 8): sequential `{fn, args}` pipeline executed by the client's
+  whitelist evaluator; `args` may contain `{"ref": "body"}` to reference
+  `request.body` literal. The last step's output becomes the POST body.
+  Unknown fns, step/arg overflow, or mixing `transform` with `steps` reject
+  the whole rule.
+- `permissions.network` (optional): domain whitelist; a request URL outside
+  the whitelist rejects the rule. When absent, the baseline URL policy
+  applies.
+- `rights.min_api_level` (optional): client API level required; lower
+  clients skip the rule as incompatible.
+- `request.body` (optional): literal body (str/dict/list/int/bool) or `null`
+  when constructed via `steps`; float and other types reject the rule.
+
+A v1.0 L1 rule (no `steps`) is a valid subset; both are governed by the
+`ott-rule` source definition in the manifest schema.
+
 ### `ott-bridge`
 
 A real-time API bridge (e.g. an authenticated "random text" service).
@@ -160,6 +190,33 @@ A real-time API bridge (e.g. an authenticated "random text" service).
 - `requires_credentials` (optional, default `false`): when true, credentials
   are entered by the user and stored only in the local OS keyring; Repo v1
   manifests MUST NOT carry credentials.
+
+#### Bridge response contract (`bridge_kind: "generic-http"`)
+
+The first built-in bridge protocol is `generic-http`: an unauthenticated
+`GET` request to `endpoint`. The response MUST be HTTP 200 with
+`Content-Type: application/json` and one of two shapes:
+
+1. **Single entry** — a flat object with OTT Core v1 entry fields:
+   ```json
+   { "title": "示例标题", "content": "正文内容", "source_key": "demo" }
+   ```
+2. **Entry list** — an object with an `entries` array:
+   ```json
+   { "entries": [ { "title": "...", "content": "..." } ] }
+   ```
+
+Recognized entry fields (Core v1 additive): `entry_id`, `title`, `content`
+(required), `preview`, `source_key`, `char_count`, `tags`, `category`.
+`title` and `source_key` are optional; when `entry_id` is absent clients
+derive a stable id from the content hash so repeated fetches of the same
+content deduplicate. Fetched items become client-local entries under
+authority `bridge:{sha256(endpoint)[:12]}`, so progress keys remain uniform
+(`ott:bridge:{authority}:{entry_id}@{revision_id}`).
+
+Future bridge kinds (e.g. authenticated protocols) extend this contract;
+clients MUST skip `bridge_kind` values they do not implement rather than
+guessing at the wire format.
 
 ### `ott-script`
 
@@ -284,6 +341,15 @@ The normative schema lives in [`schemas/ott-repo.schema.json`](../schemas/ott-re
 this prose summary does not repeat. Clients SHOULD validate manifests against
 this schema before caching. Canonical fixtures live in
 [`tests/fixtures/ott/repo-manifests/`](../../tests/fixtures/ott/repo-manifests/).
+
+Supporting schemas (same draft, each validated by its own fixture pack):
+
+| Schema | Scope |
+|:---|:---|
+| [`schemas/ott-repo.schema.json`](../schemas/ott-repo.schema.json) | Manifest contract; `ott-rule` sources fold in the L1.5 DSL fields (`steps`/`permissions`/`rights`/`request.body`) |
+| [`schemas/ott-rule-v2.schema.json`](../schemas/ott-rule-v2.schema.json) | L1.5 DSL rule field validation (45-primitive whitelist, step limits, transform/steps mutual exclusion) |
+| [`schemas/ott-bridge-response.schema.json`](../schemas/ott-bridge-response.schema.json) | `ott-bridge` `generic-http` response body (single entry or `entries` list) |
+| [`schemas/ott-adapter-v1.schema.json`](../schemas/ott-adapter-v1.schema.json) | Adapter package format (see `docs/adapter-package.md`) |
 
 ## Security Considerations
 
