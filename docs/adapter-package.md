@@ -32,7 +32,7 @@
 | `rights.min_api_level` | int | | 要求客户端 API level ≥ 此值，否则跳过（对照 `CLIENT_API_LEVEL`） |
 | `permissions.network` | list[str] | | 域名白名单（子域匹配，声明时生效；未声明回退 `validate_url`） |
 | `content.path` | str | script/rule | 相对包根载荷路径（script → `code/script.py`；rule → `code/rule.json`） |
-| `content.endpoints` | list[dict] | instance | ott-instance 端点声明（同 manifest 归一化：url/priority/health；`priority` 与 Repo manifest 端点字段一致，升序 failover） |
+| `content.endpoints` | list[dict] | instance | ott-instance 端点声明（同 manifest 归一化：url/weight/health；`weight` 与权威 schema `ott-adapter-v1.schema.json` 一致，对应 Repo manifest 端点的 `priority` 字段，升序 failover） |
 | `fixtures` | str | | fixtures 目录相对路径，缺省 `"fixtures"` |
 | `checksum` | str | ✅ | `sha256:<64hex>`，对 content 载荷文件内容 |
 | `signature.pubkey` | str | ✅ | `ed25519:<64hex>` 或裸 64 hex |

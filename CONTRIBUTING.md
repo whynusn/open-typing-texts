@@ -250,18 +250,21 @@ from cryptography.hazmat.primitives import serialization
 key = Ed25519PrivateKey.generate()
 pub = key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw).hex()
 priv = key.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption()).hex()
+open('pubkey.txt', 'w').write(pub + '\n')
+open('privkey.txt', 'w').write(priv + '\n')  # 私钥绝不提交，只保存在签名者本地
 print('pubkey:', pub)
-print('privkey:', priv)  # 私钥绝不提交，只保存在签名者本地
+print('privkey:', priv)
 "
 
 # 对 canonical manifest 字节签名（去 trust 键 + sort_keys + 无空白）
 python - <<'PY'
-import json, hashlib
+import json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 manifest = json.load(open('ott-repo.json'))
 canonical = {k: v for k, v in manifest.items() if k != 'trust'}
 canonical_bytes = json.dumps(canonical, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+pubkey_hex = open('pubkey.txt').read().strip()  # 公钥与私钥分别落盘（对称读取）
 priv = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(open('privkey.txt').read().strip()))
 sig = priv.sign(canonical_bytes)
 manifest['trust'] = {**manifest.get('trust', {}), 'signature': sig.hex(), 'pubkey': pubkey_hex}

@@ -471,7 +471,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_sign.set_defaults(func=cmd_sign)
 
-    p_debug = sub.add_parser("debug", help="执行载荷并打印条目")
+    p_debug = sub.add_parser("debug", help="静态评估载荷并打印摘要（不执行抓取）")
     p_debug.add_argument("package_dir", help="包目录")
     p_debug.add_argument(
         "--max-pages", type=int, default=5, help="规则最大分页数（默认 5）"
