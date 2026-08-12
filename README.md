@@ -32,9 +32,10 @@ OTT Core v1 只定义客户端只读分发协议：source、entry summary、entr
 | 文档 | 职责 |
 |:---|:---|
 | [OTT_SPEC.md](OTT_SPEC.md) | OTT Core v1 权威规范：Service Profile、Static Profile、Admin Profile |
+| [docs/repo-manifest-spec.md](docs/repo-manifest-spec.md) | OTT Repo v1 权威规范：去中心化源分发控制面（订阅、信任、签名、L0-L3 源类型） |
 | [LEGACY_SPEC.md](LEGACY_SPEC.md) | 旧 `registry_index.json` / `content/{source_key}.json` 兼容格式 |
 | [COMPATIBILITY.md](COMPATIBILITY.md) | 兼容矩阵与 canonical fixture pack |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | 脚本贡献与本地验证流程 |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | 脚本贡献与本地验证流程（含 Repo 源发布指引） |
 | [docs/adapter-package.md](docs/adapter-package.md) | OTT 适配器包 v1 格式与签名规范 |
 | [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) | 发布前兼容与 CI 边界检查 |
 

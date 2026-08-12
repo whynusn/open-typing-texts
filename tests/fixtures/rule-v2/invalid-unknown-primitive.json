@@ -1,0 +1,11 @@
+{
+  "kind": "json-api",
+  "request": {
+    "url": "https://example.com/api",
+    "method": "GET"
+  },
+  "extract": { "title": "$.title", "content": "$.content" },
+  "steps": [
+    { "fn": "not_a_primitive", "args": ["x"] }
+  ]
+}

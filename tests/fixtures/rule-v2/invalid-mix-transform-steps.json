@@ -1,0 +1,12 @@
+{
+  "kind": "json-api",
+  "request": {
+    "url": "https://example.com/api",
+    "method": "GET"
+  },
+  "extract": { "title": "$.title", "content": "$.content" },
+  "transform": ["trim"],
+  "steps": [
+    { "fn": "concat", "args": ["a", "b"] }
+  ]
+}

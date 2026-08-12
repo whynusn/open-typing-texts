@@ -32,7 +32,7 @@
 | `rights.min_api_level` | int | | 要求客户端 API level ≥ 此值，否则跳过（对照 `CLIENT_API_LEVEL`） |
 | `permissions.network` | list[str] | | 域名白名单（子域匹配，声明时生效；未声明回退 `validate_url`） |
 | `content.path` | str | script/rule | 相对包根载荷路径（script → `code/script.py`；rule → `code/rule.json`） |
-| `content.endpoints` | list[dict] | instance | ott-instance 端点声明（同 manifest 归一化：url/weight/health） |
+| `content.endpoints` | list[dict] | instance | ott-instance 端点声明（同 manifest 归一化：url/priority/health；`priority` 与 Repo manifest 端点字段一致，升序 failover） |
 | `fixtures` | str | | fixtures 目录相对路径，缺省 `"fixtures"` |
 | `checksum` | str | ✅ | `sha256:<64hex>`，对 content 载荷文件内容 |
 | `signature.pubkey` | str | ✅ | `ed25519:<64hex>` 或裸 64 hex |
@@ -60,7 +60,7 @@ canonical_bytes = json.dumps(
 |:--- |:--- |
 | repo manifest source 内联（`ott-script`/`ott-rule`/`ott-instance`） | ✅ 已消费 |
 | 仓库内适配器包（manifest source 引用 `adapter_id`） | 🔲 2.2 包内文件拉取 + 2.4 CI 流水线产出 |
-| 签名门槛（L3 仅 verified 仓库执行） | ✅ 2.3 已落地（TOFU 流程见 `adapter-signing.md`） |
+| 签名门槛（L3 仅 verified 仓库执行） | ✅ 2.3 已落地（TOFU 流程见本仓 `docs/signing-key-management.md`） |
 
 > 跨仓同步：open-typing-texts 仓 spec 已对齐（canonical JSON / minisign 移除 /
 > `ott-script` 源类型 / L3 签名门槛，2026-08-10 批次）。本文件为 typetype 侧实现说明，
