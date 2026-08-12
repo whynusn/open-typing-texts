@@ -249,7 +249,8 @@
                     }
                   ]
                 },
-                "tags": { "type": "array", "items": { "type": "string" } }
+                "tags": { "type": "array", "items": { "type": "string" } },
+                "default_enabled": { "type": "boolean", "default": true }
               }
             }
           },
@@ -264,7 +265,8 @@
                 "endpoint": { "type": "string", "format": "uri" },
                 "label": { "type": "string" },
                 "requires_credentials": { "type": "boolean", "default": false },
-                "tags": { "type": "array", "items": { "type": "string" } }
+                "tags": { "type": "array", "items": { "type": "string" } },
+                "default_enabled": { "type": "boolean", "default": true }
               }
             }
           },

@@ -80,6 +80,51 @@ class RuleV2SchemaTest(unittest.TestCase):
         }
         jsonschema.validate(manifest, REPO_SCHEMA)  # no raise
 
+    def test_all_source_types_accept_default_enabled(self) -> None:
+        """instance/rule/bridge/script 四种源类型都必须接受 default_enabled。"""
+        base = {
+            "protocol": "ott-repo",
+            "version": "1.1",
+            "type": "repository",
+            "repo_id": "io.github.whynusn.test",
+            "name": "Test",
+            "mirrors": [{"url": "https://example.com/ott-repo.json", "priority": 1}],
+        }
+        sources = [
+            {
+                "type": "ott-instance",
+                "authority": "demo",
+                "label": "x",
+                "endpoints": [{"url": "https://example.com/ott/", "profile": "static", "priority": 1}],
+                "default_enabled": True,
+            },
+            {
+                "type": "ott-rule",
+                "rule_id": "r",
+                "label": "x",
+                "rule": {
+                    "kind": "json-api",
+                    "request": {"url": "https://example.com/api", "method": "GET"},
+                    "extract": {"title": "$.t", "content": "$.c"},
+                },
+                "default_enabled": True,
+            },
+            {
+                "type": "ott-bridge",
+                "bridge_kind": "generic-http",
+                "endpoint": "https://example.com/bridge",
+                "label": "x",
+                "default_enabled": True,
+            },
+            {
+                "type": "ott-script",
+                "url": "https://example.com/script.py",
+                "label": "x",
+                "default_enabled": True,
+            },
+        ]
+        jsonschema.validate({**base, "sources": sources}, REPO_SCHEMA)  # no raise
+
     def test_l1_legacy_rule_still_passes_repo_schema(self) -> None:
         """v1.0 L1 规则（无 steps，有 transform）必须保持合法。"""
         manifest = {
